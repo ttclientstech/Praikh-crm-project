@@ -1,0 +1,550 @@
+/* Google Fonts Import */
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=Outfit:wght@700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+    --primary-color: #FACC15;
+    /* Solar Yellow */
+    --primary-gradient: linear-gradient(135deg, #FACC15 0%, #EAB308 100%);
+    --secondary-color: #1E293B;
+    /* Deep Blue/Charcoal */
+    --accent-green: #10B981;
+    --text-color: #334155;
+    --bg-color: #0f172a;
+    --white: #FFFFFF;
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    /* More transparent for full bg */
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    --border-color: rgba(255, 255, 255, 0.3);
+    --transition-speed: 0.3s;
+}
+
+body {
+    font-family: 'Inter Tight', sans-serif !important;
+    background-color: var(--bg-color);
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+/* Full Screen Layout */
+.auth-layout-container {
+    min-height: 100vh;
+    width: 100%;
+    background-image: url('/images/back.jpg');
+    /* User updated image */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* Vertically center content */
+    padding: 60px;
+    /* Increased padding */
+    box-sizing: border-box;
+}
+
+/* Overlay darker for focus on card */
+.auth-layout-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.65);
+    /* Darker overlay to "faint" the bg */
+    backdrop-filter: blur(3px);
+    /* Blur the background slightly */
+    z-index: 1;
+}
+
+/* Wrapper to stack content above overlay */
+.auth-layout-content-wrapper {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    /* Center items relative to each other */
+    height: 100%;
+    max-width: 1600px;
+    /* Max width for large screens */
+    margin: 0 auto;
+}
+
+/* Left Section: Typography Overlay */
+.auth-split-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* Center text block vertically */
+    align-items: flex-start;
+    padding-bottom: 0;
+    max-width: 50%;
+    opacity: 0.8;
+    /* Slight opacity to reduce focus */
+    transition: opacity 0.5s;
+}
+
+.auth-split-left:hover {
+    opacity: 1;
+    /* Bring back focus on hover if needed */
+}
+
+/* Top Badges */
+.badge-container {
+    position: absolute;
+    top: 40px;
+    left: 40px;
+    display: flex;
+    gap: 20px;
+    z-index: 2;
+    opacity: 0.8;
+}
+
+.top-right-badge {
+    position: absolute;
+    top: 40px;
+    right: 40px;
+    z-index: 2;
+    opacity: 0.8;
+}
+
+.pill-badge {
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 204, 21, 0.3);
+    color: #FACC15;
+    padding: 8px 20px;
+    border-radius: 30px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    backdrop-filter: blur(4px);
+}
+
+.hero-icon {
+    width: 120px;
+    height: auto;
+    margin-bottom: 24px;
+    opacity: 1;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+    transition: transform 0.3s ease;
+}
+
+.hero-icon:hover {
+    transform: scale(1.1);
+}
+
+/* Huge Tpyography - Fainted/De-emphasized */
+.hero-title {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: clamp(60px, 7vw, 110px);
+    line-height: 0.9;
+    color: rgba(255, 255, 255, 0.9);
+    /* Slightly transparent */
+    text-transform: uppercase;
+    text-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    letter-spacing: -2px;
+}
+
+.hero-title span {
+    display: block;
+}
+
+/* Right Section: Form */
+.auth-split-right {
+    flex: 0 0 480px;
+    /* Fixed width for consistency */
+    display: flex;
+    justify-content: flex-end;
+    /* Align to right side */
+    align-items: center;
+}
+
+/* Form Container Style - High Focus */
+.login-card-container {
+    width: 100%;
+    padding: 48px;
+    background: rgba(255, 255, 255, 0.95);
+    /* More solid for focus */
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    /* Deep shadow to pop */
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    animation: slideInUp 0.8s ease-out;
+    transform: translateY(0);
+}
+
+.login-header {
+    margin-bottom: 24px;
+    text-align: left;
+}
+
+.login-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--secondary-color);
+    margin-bottom: 8px !important;
+}
+
+.login-subtitle {
+    color: #475569;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Modern Input Styles */
+.custom-input-group {
+    margin-bottom: 20px;
+}
+
+.ant-input-affix-wrapper {
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.8);
+    transition: all var(--transition-speed);
+}
+
+.ant-input-affix-wrapper:hover,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.25) !important;
+    background: var(--white);
+}
+
+.ant-input {
+    background: transparent !important;
+}
+
+/* Button Styling */
+.login-form-button {
+    height: 48px;
+    border-radius: 12px;
+    background: var(--secondary-color);
+    /* Dark button for contrast on glass */
+    border: none;
+    font-weight: 600;
+    font-size: 16px;
+    color: #FACC15;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    transition: all 0.3s ease;
+}
+
+.login-form-button:hover {
+    transform: translateY(-2px);
+    background: #000000;
+    color: #FACC15;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+/* Other Links */
+.login-form-forgot {
+    color: var(--secondary-color);
+    font-weight: 600;
+}
+
+.login-form-forgot:hover {
+    color: #000;
+    text-decoration: underline;
+}
+
+/* Animations */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Overrides */
+
+/* Tablet and below - 1100px */
+@media (max-width: 1100px) {
+    .auth-layout-container {
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 40px 20px;
+    }
+
+    .auth-layout-content-wrapper {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .auth-split-left {
+        align-items: center;
+        text-align: center;
+        margin-bottom: 40px;
+        max-width: 100%;
+        padding-bottom: 0;
+    }
+
+    .hero-title {
+        font-size: clamp(48px, 10vw, 70px);
+    }
+
+    .badge-container {
+        position: relative;
+        top: 0;
+        left: 0;
+        margin-bottom: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .top-right-badge {
+        position: relative;
+        top: 0;
+        right: 0;
+        margin-bottom: 20px;
+    }
+
+    .auth-split-right {
+        width: 100%;
+        max-width: 480px;
+        flex: auto;
+        justify-content: center;
+    }
+
+    .login-card-container {
+        padding: 40px 32px;
+    }
+}
+
+/* Small tablets - 768px */
+@media (max-width: 768px) {
+    .auth-layout-container {
+        padding: 30px 16px;
+        min-height: 100vh;
+    }
+
+    .auth-split-left {
+        margin-bottom: 30px;
+    }
+
+    .hero-icon {
+        width: 50px;
+        margin-bottom: 16px;
+    }
+
+    .hero-title {
+        font-size: clamp(40px, 12vw, 60px);
+        letter-spacing: -1px;
+    }
+
+    .badge-container,
+    .top-right-badge {
+        gap: 12px;
+    }
+
+    .pill-badge {
+        padding: 6px 16px;
+        font-size: 0.65rem;
+        letter-spacing: 1.5px;
+    }
+
+    .auth-split-right {
+        max-width: 100%;
+    }
+
+    .login-card-container {
+        padding: 32px 24px;
+        border-radius: 20px;
+    }
+
+    .login-title {
+        font-size: 22px !important;
+    }
+
+    .login-subtitle {
+        font-size: 13px;
+    }
+
+    .login-form-button {
+        height: 46px;
+        font-size: 15px;
+    }
+}
+
+/* Mobile devices - 480px */
+@media (max-width: 480px) {
+    .auth-layout-container {
+        padding: 20px 12px;
+    }
+
+    .auth-split-left {
+        margin-bottom: 24px;
+    }
+
+    .hero-icon {
+        width: 40px;
+        margin-bottom: 12px;
+    }
+
+    .hero-title {
+        font-size: clamp(32px, 14vw, 48px);
+        letter-spacing: -0.5px;
+    }
+
+    .badge-container {
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .top-right-badge {
+        margin-bottom: 16px;
+    }
+
+    .pill-badge {
+        padding: 6px 14px;
+        font-size: 0.6rem;
+        letter-spacing: 1px;
+    }
+
+    .login-card-container {
+        padding: 28px 20px;
+        border-radius: 16px;
+        box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.4);
+    }
+
+    .login-header {
+        margin-bottom: 20px;
+    }
+
+    .login-title {
+        font-size: 20px !important;
+        margin-bottom: 6px !important;
+    }
+
+    .login-subtitle {
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    .custom-input-group {
+        margin-bottom: 16px;
+    }
+
+    .ant-input-affix-wrapper {
+        padding: 10px 14px;
+        border-radius: 10px;
+    }
+
+    .ant-input,
+    .ant-input-password {
+        font-size: 14px;
+    }
+
+    .login-form-button {
+        height: 44px;
+        font-size: 14px;
+        border-radius: 10px;
+    }
+
+    /* Adjust the remember me and forgot password section */
+    .login-form-wrapper>div[style] {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px;
+    }
+
+    .login-form-forgot {
+        font-size: 13px;
+    }
+
+    .ant-checkbox-wrapper {
+        font-size: 13px;
+    }
+}
+
+/* Extra small mobile - 360px */
+@media (max-width: 360px) {
+    .auth-layout-container {
+        padding: 16px 10px;
+    }
+
+    .hero-title {
+        font-size: clamp(28px, 15vw, 40px);
+    }
+
+    .login-card-container {
+        padding: 24px 16px;
+    }
+
+    .login-title {
+        font-size: 18px !important;
+    }
+
+    .login-subtitle {
+        font-size: 11px;
+    }
+
+    .pill-badge {
+        padding: 5px 12px;
+        font-size: 0.55rem;
+    }
+
+    .ant-input-affix-wrapper {
+        padding: 9px 12px;
+    }
+
+    .login-form-button {
+        height: 42px;
+        font-size: 13px;
+    }
+}
+
+/* Landscape orientation for mobile devices */
+@media (max-height: 600px) and (orientation: landscape) {
+    .auth-layout-container {
+        padding: 20px;
+    }
+
+    .auth-split-left {
+        margin-bottom: 20px;
+    }
+
+    .hero-icon {
+        width: 35px;
+        margin-bottom: 8px;
+    }
+
+    .hero-title {
+        font-size: clamp(28px, 8vw, 40px);
+    }
+
+    .badge-container,
+    .top-right-badge {
+        margin-bottom: 12px;
+    }
+
+    .login-card-container {
+        padding: 24px 20px;
+    }
+
+    .login-header {
+        margin-bottom: 16px;
+    }
+
+    .custom-input-group {
+        margin-bottom: 12px;
+    }
+}

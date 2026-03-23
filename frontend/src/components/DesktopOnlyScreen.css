@@ -1,0 +1,157 @@
+/* Desktop Only Screen Styles */
+.desktop-only-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.desktop-only-content {
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    animation: fadeInUp 0.6s ease-out;
+    box-sizing: border-box;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Logo Section */
+.logo-container {
+    margin-bottom: 40px;
+}
+
+.company-logo {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);
+}
+
+.company-name {
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+    margin: 0 0 8px 0;
+    font-family: 'Inter Tight', sans-serif;
+}
+
+.company-tagline {
+    font-size: 14px;
+    color: #F59E0B;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 0;
+}
+
+/* Message Section */
+.message-container {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 32px 24px;
+    margin-bottom: 32px;
+}
+
+.desktop-icon {
+    font-size: 48px;
+    color: #F59E0B;
+    margin-bottom: 16px;
+}
+
+.message-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 16px 0;
+    font-family: 'Inter Tight', sans-serif;
+}
+
+.message-text {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+    margin: 0 0 12px 0;
+}
+
+.message-subtext {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* Contact Section */
+.contact-info {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+}
+
+.contact-info p {
+    margin: 0 0 8px 0;
+}
+
+.contact-link {
+    color: #F59E0B;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s;
+}
+
+.contact-link:hover {
+    color: #FBBF24;
+    text-decoration: underline;
+}
+
+/* Responsive adjustments for very small screens */
+@media (max-width: 400px) {
+    .company-logo {
+        width: 60px;
+        height: 60px;
+    }
+
+    .company-name {
+        font-size: 24px;
+    }
+
+    .company-tagline {
+        font-size: 12px;
+    }
+
+    .message-container {
+        padding: 24px 20px;
+    }
+
+    .desktop-icon {
+        font-size: 40px;
+    }
+
+    .message-title {
+        font-size: 20px;
+    }
+
+    .message-text {
+        font-size: 15px;
+    }
+}

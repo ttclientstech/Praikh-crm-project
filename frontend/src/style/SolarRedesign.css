@@ -1,0 +1,393 @@
+/* SolarRedesign.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+    --solar-primary: #3B82F6;
+    --solar-primary-dark: #2563EB;
+    --solar-accent: #F59E0B;
+    /* Solar Orange */
+    --solar-green: #10B981;
+    --solar-bg: #F8FAFC;
+    --solar-card-bg: #FFFFFF;
+    --solar-text: #1E293B;
+    --solar-text-light: #64748B;
+    --solar-radius: 16px;
+    --solar-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --solar-shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --solar-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.solar-page-container {
+    padding: 0;
+    color: var(--solar-text);
+    font-family: 'Inter Tight', sans-serif;
+    animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Header */
+.solar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.solar-title-area h2 {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--solar-text);
+    margin: 0 0 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.solar-icon-accent {
+    color: var(--solar-accent);
+    background: #FFF7ED;
+    padding: 8px;
+    border-radius: 12px;
+    font-size: 24px;
+}
+
+.solar-title-area p {
+    color: var(--solar-text-light);
+    font-size: 15px;
+    margin: 0;
+}
+
+/* Actions */
+.solar-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.search-pill-solar .ant-input-prefix {
+    margin-right: 10px;
+}
+
+.search-pill-solar {
+    border-radius: 99px;
+    background: white;
+    border: 1px solid #E2E8F0;
+    padding: 10px 20px;
+    width: 320px;
+    height: 48px;
+    box-shadow: var(--solar-shadow);
+    transition: var(--solar-transition);
+}
+
+.search-pill-solar:hover,
+.search-pill-solar:focus-within {
+    border-color: var(--solar-primary);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.icon-btn-round {
+    border-radius: 50% !important;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #E2E8F0;
+    background: white;
+    color: var(--solar-text-light);
+    box-shadow: var(--solar-shadow);
+    transition: var(--solar-transition);
+}
+
+.icon-btn-round:hover {
+    color: var(--solar-primary);
+    border-color: var(--solar-primary);
+    transform: rotate(90deg);
+}
+
+.btn-gradient-primary {
+    height: 48px;
+    border-radius: 99px;
+    padding: 0 32px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+    border: none;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+    transition: var(--solar-transition);
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-gradient-primary:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+    background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+    color: white;
+}
+
+/* KPI Card */
+.stats-row {
+    margin-bottom: 32px;
+}
+
+.kpi-energy-card {
+    background: white;
+    border-radius: var(--solar-radius);
+    padding: 24px 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 24px;
+    box-shadow: var(--solar-shadow);
+    border: 1px solid #F1F5F9;
+    min-width: 280px;
+    transition: var(--solar-transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-energy-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8));
+    transform: skewX(-20deg) translateX(150%);
+    transition: 0.5s;
+}
+
+.kpi-energy-card:hover::after {
+    transform: skewX(-20deg) translateX(-150%);
+}
+
+.kpi-energy-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--solar-shadow-hover);
+}
+
+.energy-icon-box {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: #FFF7ED;
+    /* Light Orange */
+    color: #EA580C;
+    /* Dark Orange */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+}
+
+.energy-content h3 {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--solar-text);
+    margin: 0;
+    line-height: 1;
+}
+
+.energy-content p {
+    font-size: 14px;
+    color: var(--solar-text-light);
+    margin: 4px 0 0 0;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Floating Table */
+.floating-data-table {
+    background: white;
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: var(--solar-shadow);
+    border: 1px solid #F1F5F9;
+    overflow: hidden;
+}
+
+.custom-table .ant-table-thead>tr>th {
+    background: white;
+    color: var(--solar-text-light);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #F1F5F9;
+    padding: 20px 24px;
+}
+
+.custom-table .ant-table-tbody>tr>td {
+    padding: 20px 24px;
+    border-bottom: 1px solid #F8FAFC;
+    transition: font-weight 0.2s;
+}
+
+.custom-table .ant-table-tbody>tr:hover>td {
+    background: #F8FAFC !important;
+}
+
+.custom-table .ant-table-tbody>tr {
+    transition: transform 0.2s;
+}
+
+.custom-table .ant-table-tbody>tr:hover {
+    transform: scale(1.005);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+    z-index: 2;
+    background: white;
+}
+
+/* Columns */
+.client-cell {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.client-avatar-gradient {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+    color: var(--solar-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    border: 2px solid white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.client-name-link {
+    font-weight: 600;
+    color: var(--solar-primary);
+    font-size: 15px;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.client-name-link:hover {
+    color: var(--solar-primary-dark);
+    text-decoration: underline;
+}
+
+.status-badge {
+    padding: 6px 16px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.status-Active {
+    background: #ECFDF5;
+    color: #059669;
+    border: 1px solid #D1FAE5;
+}
+
+.status-Pending {
+    background: #FFF7ED;
+    color: #EA580C;
+    border: 1px solid #FFEDD5;
+}
+
+.status-Completed {
+    background: #EFF6FF;
+    color: #2563EB;
+    border: 1px solid #DBEAFE;
+}
+
+.status-Cancelled {
+    background: #FEF2F2;
+    color: #DC2626;
+    border: 1px solid #FEE2E2;
+}
+
+.system-tag {
+    border: 1px solid #BFDBFE;
+    color: #2563EB;
+    background: #EFF6FF;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.cost-highlight {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 700;
+    color: var(--solar-text);
+    font-size: 15px;
+}
+
+.action-menu-trigger {
+    color: #94A3B8;
+    font-size: 20px;
+    transition: color 0.2s;
+    padding: 8px;
+    border-radius: 50%;
+}
+
+.action-menu-trigger:hover {
+    background: #F1F5F9;
+    color: var(--solar-primary);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .solar-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .solar-actions {
+        width: 100%;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .search-pill-solar {
+        width: 100%;
+    }
+
+    .btn-gradient-primary {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .stats-row {
+        margin-bottom: 24px;
+    }
+
+    .kpi-energy-card {
+        width: 100%;
+        margin-bottom: 16px;
+    }
+
+    .floating-data-table {
+        padding: 12px;
+        border-radius: 16px;
+    }
+}
