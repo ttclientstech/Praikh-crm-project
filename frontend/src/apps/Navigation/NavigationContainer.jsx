@@ -31,6 +31,7 @@ import {
   WalletOutlined,
   ReconciliationOutlined,
   FileTextOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -70,6 +71,7 @@ function Sidebar({ collapsible, isMobile = false }) {
       icon: <ContainerOutlined />,
       label: <Link to={'/solarProject'}>{'Solar Projects'}</Link>,
     },
+
     {
       key: 'quotation',
       icon: <FileTextOutlined />,
@@ -82,6 +84,11 @@ function Sidebar({ collapsible, isMobile = false }) {
       key: 'commission',
       label: <Link to={'/commission'}>{'Commission'}</Link>, // Hardcoded label as requested
       icon: <ReconciliationOutlined />,
+    },
+    {
+      key: 'links',
+      label: <Link to={'/links'}>{'Links'}</Link>,
+      icon: <LinkOutlined />,
     },
   ];
 

@@ -244,6 +244,38 @@ const request = {
     }
   },
 
+  download: async ({ entity, jsonData, fileName = 'download.docx' }) => {
+    try {
+      includeToken();
+      const response = await axios.post(entity, jsonData, {
+        responseType: 'blob',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const blob = new Blob([response.data], {
+        type: response.headers['content-type'] || 'application/octet-stream',
+      });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+
+      const disposition = response.headers['content-disposition'] || '';
+      const match = disposition.match(/filename="?([^"]+)"?/i);
+      link.download = match?.[1] || fileName;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+
+      return { success: true };
+    } catch (error) {
+      return errorHandler(error);
+    }
+  },
+
   source: () => {
     const CancelToken = axios.CancelToken;
     const source = CancelToken.source();

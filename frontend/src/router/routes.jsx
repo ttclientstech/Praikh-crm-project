@@ -12,9 +12,11 @@ const SolarProjectRead = lazy(() => import('@/pages/SolarProject/SolarProjectRea
 const Settings = lazy(() => import('@/pages/Settings/Settings'));
 
 
+
 const Profile = lazy(() => import('@/pages/Profile'));
 
 const Commission = lazy(() => import('@/pages/Commission'));
+const ExternalLinks = lazy(() => import('@/pages/ExternalLinks'));
 
 let routes = {
   expense: [],
@@ -30,6 +32,10 @@ let routes = {
     {
       path: '/commission',
       element: <Commission />,
+    },
+    {
+      path: '/links',
+      element: <ExternalLinks />,
     },
     {
       path: '/',
@@ -48,6 +54,7 @@ let routes = {
       path: '/solarProject/read/:id',
       element: <SolarProjectRead />,
     },
+
 
     {
       path: '/settings',

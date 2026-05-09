@@ -1,4 +1,16 @@
 const mongoose = require('mongoose');
+const {
+  createDocxFromTemplate,
+  createModelAgreementDocxFromTemplate,
+  createNetMeteringDocxFromTemplate,
+  createUndertakingDocxFromTemplate,
+  createWorkCompletionDocxFromTemplate,
+  resolveTemplatePath,
+  resolveModelAgreementTemplatePath,
+  resolveNetMeteringTemplatePath,
+  resolveUndertakingTemplatePath,
+  resolveWorkCompletionTemplatePath,
+} = require('@/utils/docxTemplate');
 const createCRUDController = require('@/controllers/middlewaresControllers/createCRUDController');
 
 const methods = createCRUDController('SolarProject');
@@ -35,14 +47,32 @@ methods.summary = async (req, res) => {
         const pendingProjects = totalProjects - completedProjects;
 
         // 5. Total Receivable Payment
-        const financialStats = await Model.aggregate([
+                const financialStats = await Model.aggregate([
             { $match: query },
+            {
+                $project: {
+                    projectCost: { $ifNull: ["$paymentDetails.totalProjectCost", 0] },
+                    advances: {
+                        $cond: {
+                            if: { $gt: [{ $size: { $ifNull: ["$paymentDetails.advancePayments", []] } }, 0] },
+                            then: { $sum: "$paymentDetails.advancePayments.amount" },
+                            else: { $add: [{ $ifNull: ["$paymentDetails.advancePayment1", 0] }, { $ifNull: ["$paymentDetails.advancePayment2", 0] }] }
+                        }
+                    },
+                    loans: {
+                        $cond: {
+                            if: { $gt: [{ $size: { $ifNull: ["$paymentDetails.loanDisbursals", []] } }, 0] },
+                            then: { $sum: "$paymentDetails.loanDisbursals.amount" },
+                            else: { $ifNull: ["$paymentDetails.loanCreditedAmount", 0] }
+                        }
+                    }
+                }
+            },
             {
                 $group: {
                     _id: null,
-                    totalCost: { $sum: "$paymentDetails.totalProjectCost" },
-                    totalAdvance: { $sum: { $sum: "$paymentDetails.advancePayments.amount" } },
-                    totalLoanCredited: { $sum: "$paymentDetails.loanCreditedAmount" }
+                    totalCost: { $sum: "$projectCost" },
+                    totalReceived: { $sum: { $add: ["$advances", "$loans"] } }
                 }
             }
         ]);
@@ -50,9 +80,18 @@ methods.summary = async (req, res) => {
         let totalReceivable = 0;
         if (financialStats.length > 0) {
             const stats = financialStats[0];
-            const totalReceived = (stats.totalAdvance || 0) + (stats.totalLoanCredited || 0);
-            totalReceivable = (stats.totalCost || 0) - totalReceived;
+            totalReceivable = (stats.totalCost || 0) - (stats.totalReceived || 0);
         }
+
+        // 6. Today Follow Up
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        const followUpQuery = {
+            ...query,
+            status: { $ne: 'Completed' },
+            nextFollowUpDate: { $lte: endOfDay }
+        };
+        const todayFollowUpCount = await Model.countDocuments(followUpQuery);
 
         return res.status(200).json({
             success: true,
@@ -61,7 +100,8 @@ methods.summary = async (req, res) => {
                 completedProjects,
                 workCompletedPercentage,
                 pendingProjects,
-                totalReceivable
+                totalReceivable,
+                todayFollowUpCount
             },
             message: 'Dashboard stats retrieved successfully',
         });
@@ -195,6 +235,51 @@ methods.deleteDocument = async (req, res) => {
             message: err.message,
         });
     }
+};
+
+methods.downloadAnnexure = async (req, res) => {
+  const templatePath = resolveTemplatePath();
+  const values = req.body;
+  const docBuffer = await createDocxFromTemplate(templatePath, values);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  res.setHeader('Content-Disposition', 'attachment; filename=annexure.docx');
+  return res.send(docBuffer);
+};
+
+methods.downloadModelAgreement = async (req, res) => {
+  const templatePath = resolveModelAgreementTemplatePath();
+  const values = req.body;
+  const docBuffer = await createModelAgreementDocxFromTemplate(templatePath, values);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  res.setHeader('Content-Disposition', 'attachment; filename=model-agreement.docx');
+  return res.send(docBuffer);
+};
+
+methods.downloadNetMetering = async (req, res) => {
+  const templatePath = resolveNetMeteringTemplatePath();
+  const values = req.body;
+  const docBuffer = await createNetMeteringDocxFromTemplate(templatePath, values);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  res.setHeader('Content-Disposition', 'attachment; filename=net-metering.docx');
+  return res.send(docBuffer);
+};
+
+methods.downloadUndertaking = async (req, res) => {
+  const templatePath = resolveUndertakingTemplatePath();
+  const values = req.body;
+  const docBuffer = await createUndertakingDocxFromTemplate(templatePath, values);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  res.setHeader('Content-Disposition', 'attachment; filename=undertaking.docx');
+  return res.send(docBuffer);
+};
+
+methods.downloadWorkCompletion = async (req, res) => {
+  const templatePath = resolveWorkCompletionTemplatePath();
+  const values = req.body;
+  const docBuffer = await createWorkCompletionDocxFromTemplate(templatePath, values);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  res.setHeader('Content-Disposition', 'attachment; filename=work-completion.docx');
+  return res.send(docBuffer);
 };
 
 module.exports = methods;

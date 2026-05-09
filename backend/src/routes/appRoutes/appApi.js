@@ -31,6 +31,11 @@ const routerApp = (entity, controller) => {
   }
 
   if (entity === 'solarproject') {
+    router.route(`/${entity}/annexure/download`).post(catchErrors(controller['downloadAnnexure']));
+    router.route(`/${entity}/model-agreement/download`).post(catchErrors(controller['downloadModelAgreement']));
+    router.route(`/${entity}/net-metering/download`).post(catchErrors(controller['downloadNetMetering']));
+    router.route(`/${entity}/undertaking/download`).post(catchErrors(controller['downloadUndertaking']));
+    router.route(`/${entity}/work-completion/download`).post(catchErrors(controller['downloadWorkCompletion']));
     router.route(`/${entity}/upload/:id`).post(
       cloudinaryStorageUpload({ entity: 'solarProject', fieldName: 'file', fileType: 'all' }),
       clearCacheOnUpdate(entity),

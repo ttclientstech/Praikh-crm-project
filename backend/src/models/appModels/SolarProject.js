@@ -108,6 +108,18 @@ const schema = new mongoose.Schema({
       type: String,
       default: 'Pending', // Pending, Completed
       enum: ['Pending', 'Completed']
+    },
+    netMode: {
+      type: Boolean,
+      default: false
+    },
+    sendToBeLink: {
+      type: Boolean,
+      default: false
+    },
+    appliedForSubsidy: {
+      type: Boolean,
+      default: false
     }
   },
   // Project Documentation (Forms & Uploads)
@@ -131,12 +143,15 @@ const schema = new mongoose.Schema({
   },
   loanRemarksHistory: [{
     comment: String,
+    nextFollowUpDate: Date,
     date: { type: Date, default: Date.now }
   }],
   personalRemarksHistory: [{
     comment: String,
+    nextFollowUpDate: Date,
     date: { type: Date, default: Date.now }
-  }]
+  }],
+  nextFollowUpDate: Date
 });
 
 schema.plugin(require('mongoose-autopopulate'));

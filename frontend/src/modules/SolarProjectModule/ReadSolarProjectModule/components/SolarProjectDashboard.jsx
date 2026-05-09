@@ -19,6 +19,8 @@ import { request } from '@/request';
 import UploadDocumentModal from './UploadDocumentModal';
 import { FILE_BASE_URL } from '@/config/serverApiConfig';
 import CompletionDetails from '@/pages/SolarProject/CompletionDetails';
+import ProjectDocumentGenerator from './ProjectDocumentGenerator';
+
 
 
 
@@ -95,6 +97,12 @@ export default function SolarProjectDashboard({ selectedItem }) {
                 onUpload={() => setIsUploadModalOpen(true)}
                 onDelete={handleDeleteDocument}
             />,
+
+        },
+        {
+            key: 'generate-doc',
+            label: 'Generate Document',
+            children: <ProjectDocumentGenerator project={selectedItem} />,
         }
     ];
 

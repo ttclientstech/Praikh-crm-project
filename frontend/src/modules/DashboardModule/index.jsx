@@ -1,5 +1,5 @@
-import { useEffect, useState, cloneElement } from 'react';
-import { Row, Col, Button, Spin, Card, Select, Space, Typography, Tag, Progress, Modal, Table, Input, Form, message, Divider, Tabs } from 'antd';
+import { useEffect, useState, cloneElement, useMemo } from 'react';
+import { Row, Col, Button, Spin, Card, Select, Space, Typography, Tag, Progress, Modal, Table, Input, Form, message, Divider, Tabs, DatePicker } from 'antd';
 import '@/style/DashboardRedesign.css'; // Ensure CSS is loaded
 import { useMoney } from '@/settings';
 import { request } from '@/request';
@@ -15,10 +15,12 @@ import {
   DollarOutlined,
   RiseOutlined,
   AppstoreOutlined,
-  MessageOutlined
+  MessageOutlined,
+  EditOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getStateOptions, getCityOptions } from '@/utils/stateCityData';
+import { LocalSolarProjectForm } from '@/pages/SolarProject/SolarProjectsPage';
 
 const { Title, Text } = Typography;
 
@@ -42,36 +44,50 @@ const StatsCard = ({ title, value, icon, color, suffix = '', precision = 0, form
 
 function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', mode = 'add', onUpdateSuccess }) {
   const [newRemark, setNewRemark] = useState('');
+    const [nextDate, setNextDate] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   if (!record) return null;
 
   const handleSave = async (type) => {
-    if (!newRemark.trim()) return;
-    setSubmitting(true);
+        if (!newRemark.trim()) return;
+        setSubmitting(true);
 
-    const historyField = type === 'Loan' ? 'loanRemarksHistory' : 'personalRemarksHistory';
-    const currentHistory = record[historyField] || [];
+        const historyField = type === 'Loan' ? 'loanRemarksHistory' : 'personalRemarksHistory';
+        const currentHistory = record[historyField] || [];
 
-    const updateData = {
-      [historyField]: [...currentHistory, { comment: newRemark, date: new Date() }]
+        const newEntry = { 
+            comment: newRemark, 
+            date: new Date() 
+        };
+        if (nextDate) {
+            newEntry.nextFollowUpDate = nextDate.toISOString();
+        }
+
+        const updateData = {
+            [historyField]: [...currentHistory, newEntry]
+        };
+        if (nextDate) {
+            updateData.nextFollowUpDate = nextDate.toISOString();
+        }
+
+        try {
+            const response = await request.update({ entity, id: record._id, jsonData: updateData });
+            if (response && response.success) {
+                message.success(`${type} remark added successfully`);
+                if (typeof onUpdateSuccess !== 'undefined' && onUpdateSuccess) onUpdateSuccess();
+                if (typeof dispatch !== 'undefined') dispatch(crud.list({ entity }));
+                setNewRemark('');
+                setNextDate(null);
+            } else {
+                message.error('Failed to add remark');
+            }
+        } catch (error) {
+            message.error('Error adding remark');
+        } finally {
+            setSubmitting(false);
+        }
     };
-
-    try {
-      const response = await request.update({ entity, id: record._id, jsonData: updateData });
-      if (response && response.success) {
-        message.success(`${type} remark added successfully`);
-        if (onUpdateSuccess) onUpdateSuccess();
-        setNewRemark('');
-      } else {
-        message.error('Failed to add remark');
-      }
-    } catch (error) {
-      message.error('Error adding remark');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const renderHistory = (history) => (
     <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '20px', padding: mode === 'history' ? '0' : '10px', background: mode === 'history' ? 'transparent' : '#F8FAFC', borderRadius: '8px' }}>
@@ -84,6 +100,11 @@ function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', m
               <span style={{ fontWeight: '600', fontSize: '12px', color: '#64748B' }}>
                 {dayjs(item.date).format('DD MMM YYYY, hh:mm A')}
               </span>
+              {item.nextFollowUpDate && (
+                <span style={{ fontWeight: '600', fontSize: '12px', color: '#EF4444' }}>
+                  Next Follow Up: {dayjs(item.nextFollowUpDate).format('DD MMM YYYY')}
+                </span>
+              )}
             </div>
             <div style={{ color: '#1E293B', fontSize: '14px' }}>{item.comment}</div>
           </div>
@@ -106,6 +127,13 @@ function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', m
                 placeholder="Add new loan remark..."
                 value={newRemark}
                 onChange={(e) => setNewRemark(e.target.value)}
+                style={{ marginBottom: '10px' }}
+              />
+              <DatePicker 
+                placeholder="Next Follow Up Date" 
+                style={{ width: '100%', marginBottom: '10px' }} 
+                value={nextDate}
+                onChange={(date) => setNextDate(date)}
               />
               <Button
                 type="primary"
@@ -133,6 +161,13 @@ function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', m
                 placeholder="Add new personal remark..."
                 value={newRemark}
                 onChange={(e) => setNewRemark(e.target.value)}
+                style={{ marginBottom: '10px' }}
+              />
+              <DatePicker 
+                placeholder="Next Follow Up Date" 
+                style={{ width: '100%', marginBottom: '10px' }} 
+                value={nextDate}
+                onChange={(date) => setNextDate(date)}
               />
               <Button
                 type="primary"
@@ -254,7 +289,8 @@ export default function DashboardModule() {
     completedProjects: 0,
     workCompletedPercentage: 0,
     pendingProjects: 0,
-    totalReceivable: 0
+    totalReceivable: 0,
+    todayFollowUpCount: 0
   });
 
   useEffect(() => {
@@ -379,9 +415,38 @@ export default function DashboardModule() {
     if (isCompletedModalOpen) handleCompletedSitesClick();
     if (isProjectsModalOpen) handleTotalProjectsClick();
     if (isRevenueModalOpen) handleRevenueClick();
+    if (isFollowUpModalOpen) handleFollowUpClick();
+    applyFilters();
+  };
+
+  /* Edit Modal State */
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editRecord, setEditRecord] = useState(null);
+
+  const handleEditClick = (record) => {
+    setEditRecord(record);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSuccess = () => {
+    setIsEditModalOpen(false);
+    // Refresh modal data if needed
+    if (isRevenueModalOpen) handleRevenueClick();
+    if (isFollowUpModalOpen) handleFollowUpClick();
+    applyFilters();
   };
 
   const revenueColumns = [
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => (
+        <Tag color={status === 'Active' ? 'green' : status === 'Completed' ? 'blue' : 'default'}>
+          {status || 'Active'}
+        </Tag>
+      )
+    },
     {
       title: 'Project Name',
       dataIndex: 'client',
@@ -404,8 +469,9 @@ export default function DashboardModule() {
       key: 'received',
       render: (_, record) => {
         const pd = record.paymentDetails || {};
-        const totalAdvances = pd.advancePayments?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
-        const totalReceived = totalAdvances + (pd.loanCreditedAmount || 0);
+                const totalAdvances = (pd.advancePayments?.length > 0) ? pd.advancePayments.reduce((sum, item) => sum + (item.amount || 0), 0) : ((pd.advancePayment1 || 0) + (pd.advancePayment2 || 0));
+        const totalLoans = (pd.loanDisbursals?.length > 0) ? pd.loanDisbursals.reduce((sum, item) => sum + (item.amount || 0), 0) : (pd.loanCreditedAmount || 0);
+        const totalReceived = totalAdvances + totalLoans;
         return <span style={{ color: '#10B981' }}>{moneyFormatter({ amount: totalReceived })}</span>;
       }
     },
@@ -414,8 +480,9 @@ export default function DashboardModule() {
       key: 'remaining',
       render: (_, record) => {
         const pd = record.paymentDetails || {};
-        const totalAdvances = pd.advancePayments?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
-        const totalReceived = totalAdvances + (pd.loanCreditedAmount || 0);
+                const totalAdvances = (pd.advancePayments?.length > 0) ? pd.advancePayments.reduce((sum, item) => sum + (item.amount || 0), 0) : ((pd.advancePayment1 || 0) + (pd.advancePayment2 || 0));
+        const totalLoans = (pd.loanDisbursals?.length > 0) ? pd.loanDisbursals.reduce((sum, item) => sum + (item.amount || 0), 0) : (pd.loanCreditedAmount || 0);
+        const totalReceived = totalAdvances + totalLoans;
         const remaining = (pd.totalProjectCost || 0) - totalReceived;
         return <span style={{ color: '#EF4444', fontWeight: 'bold' }}>{moneyFormatter({ amount: remaining })}</span>;
       }
@@ -426,6 +493,16 @@ export default function DashboardModule() {
       render: (_, record) => (
         <Button type="link" size="small" onClick={() => navigate(`/solarProject/read/${record._id}`)}>
           View Detail
+        </Button>
+      )
+    },
+    {
+      title: 'Edit',
+      key: 'edit',
+      align: 'center',
+      render: (_, record) => (
+        <Button type="primary" size="small" icon={<EditOutlined />} onClick={() => handleEditClick(record)}>
+          Edit
         </Button>
       )
     },
@@ -558,10 +635,75 @@ export default function DashboardModule() {
     }
   };
 
+  /* Today Follow Up Modal State */
+  const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
+  const [followUpData, setFollowUpData] = useState([]);
+  const [isFollowUpLoading, setIsFollowUpLoading] = useState(false);
+
+  const handleFollowUpClick = async () => {
+    setIsFollowUpModalOpen(true);
+    setIsFollowUpLoading(true);
+
+    const options = { items: 1000 };
+    if (filters.state) options.state = filters.state;
+    if (filters.city) options.city = filters.city;
+
+    try {
+      const response = await request.list({ entity: 'solarProject', options });
+      if (response && response.success) {
+        const result = response.result;
+        const items = Array.isArray(result) ? result : (result && result.items ? result.items : []);
+        
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        const filteredItems = items.filter(item => 
+          item.status !== 'Completed' && 
+          item.nextFollowUpDate && 
+          new Date(item.nextFollowUpDate) <= endOfDay
+        );
+        setFollowUpData(filteredItems);
+      }
+    } catch (error) {
+      console.log("Error fetching follow up projects:", error);
+    } finally {
+      setIsFollowUpLoading(false);
+    }
+  };
+
   /* Pending Projects Modal State */
   const [isPendingModalOpen, setIsPendingModalOpen] = useState(false);
   const [pendingData, setPendingData] = useState([]);
   const [isPendingLoading, setIsPendingLoading] = useState(false);
+
+
+  const revenueTotals = useMemo(() => {
+    let received = 0;
+    let remaining = 0;
+    revenueData.forEach(record => {
+        const pd = record.paymentDetails || {};
+        const adv = (pd.advancePayments?.length > 0) ? pd.advancePayments.reduce((sum, item) => sum + (item.amount || 0), 0) : ((pd.advancePayment1 || 0) + (pd.advancePayment2 || 0));
+        const loans = (pd.loanDisbursals?.length > 0) ? pd.loanDisbursals.reduce((sum, item) => sum + (item.amount || 0), 0) : (pd.loanCreditedAmount || 0);
+        const rec = adv + loans;
+        received += rec;
+        remaining += (pd.totalProjectCost || 0) - rec;
+    });
+    return { received, remaining };
+  }, [revenueData]);
+
+  const completedTotals = useMemo(() => {
+    let received = 0;
+    let remaining = 0;
+    completedData.forEach(record => {
+        const pd = record.paymentDetails || {};
+        const adv = (pd.advancePayments?.length > 0) ? pd.advancePayments.reduce((sum, item) => sum + (item.amount || 0), 0) : ((pd.advancePayment1 || 0) + (pd.advancePayment2 || 0));
+        const loans = (pd.loanDisbursals?.length > 0) ? pd.loanDisbursals.reduce((sum, item) => sum + (item.amount || 0), 0) : (pd.loanCreditedAmount || 0);
+        const rec = adv + loans;
+        received += rec;
+        remaining += (pd.totalProjectCost || 0) - rec;
+    });
+    return { received, remaining };
+  }, [completedData]);
 
   const handlePendingProjectsClick = async () => {
     setIsPendingModalOpen(true);
@@ -735,11 +877,38 @@ export default function DashboardModule() {
           </div>
           <div className="widget-number">{stats.pendingProjects}</div>
         </div>
+
+        {/* Widget - Today Follow Up */}
+        <div
+          className="widget-card"
+          onClick={handleFollowUpClick}
+          style={{ cursor: 'pointer', transition: 'transform 0.2s', gridColumn: '1 / -1' }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.01)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          <div className="widget-label">
+            Today Follow Ups
+            <ClockCircleOutlined className="widget-icon-small" style={{ color: '#EF4444' }} />
+          </div>
+          <div className="widget-number">{stats.todayFollowUpCount || 0}</div>
+        </div>
       </div>
 
       {/* Modals placed within the page container */}
       <Modal
-        title="Project Financial Details"
+        title={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingRight: '60px' }}>
+            <span>Project Financial Details</span>
+            <div style={{ display: 'flex', gap: '20px', fontSize: '14px', fontWeight: 'normal' }}>
+              <span style={{ color: '#10B981', fontWeight: 'bold' }}>
+                Total Received: {moneyFormatter({ amount: revenueTotals.received })}
+              </span>
+              <span style={{ color: '#EF4444', fontWeight: 'bold' }}>
+                Total Remaining: {moneyFormatter({ amount: revenueTotals.remaining })}
+              </span>
+            </div>
+          </div>
+        }
         open={isRevenueModalOpen}
         onCancel={() => setIsRevenueModalOpen(false)}
         width={1000}
@@ -757,6 +926,25 @@ export default function DashboardModule() {
             pagination={{ pageSize: 5 }}
           />
         </div>
+      </Modal>
+
+      <Modal
+        title="Edit Solar Project Payment Details"
+        open={isEditModalOpen}
+        onCancel={() => setIsEditModalOpen(false)}
+        footer={null}
+        width={800}
+        centered
+        destroyOnClose
+        maskClosable={false}
+        style={{ borderRadius: '16px', overflow: 'hidden' }}
+      >
+        <LocalSolarProjectForm
+          isUpdate={true}
+          record={editRecord}
+          initialStep={2} // Open directly to Payment & Bank tab
+          onSuccess={handleEditSuccess}
+        />
       </Modal>
 
       <Modal
@@ -781,7 +969,19 @@ export default function DashboardModule() {
       </Modal>
 
       <Modal
-        title="Completed Solar Sites"
+        title={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingRight: '60px' }}>
+            <span>Completed Solar Sites</span>
+            <div style={{ display: 'flex', gap: '20px', fontSize: '14px', fontWeight: 'normal' }}>
+              <span style={{ color: '#10B981', fontWeight: 'bold' }}>
+                Total Received: {moneyFormatter({ amount: completedTotals.received })}
+              </span>
+              <span style={{ color: '#EF4444', fontWeight: 'bold' }}>
+                Total Remaining: {moneyFormatter({ amount: completedTotals.remaining })}
+              </span>
+            </div>
+          </div>
+        }
         open={isCompletedModalOpen}
         onCancel={() => setIsCompletedModalOpen(false)}
         width={1000}
@@ -792,7 +992,7 @@ export default function DashboardModule() {
       >
         <div className="table-responsive">
           <Table
-            columns={projectListColumns}
+            columns={revenueColumns}
             dataSource={completedData}
             loading={isCompletedLoading}
             rowKey="_id"
@@ -816,6 +1016,27 @@ export default function DashboardModule() {
             columns={projectListColumns}
             dataSource={pendingData}
             loading={isPendingLoading}
+            rowKey="_id"
+            pagination={{ pageSize: 5 }}
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        title="Today's Follow Ups"
+        open={isFollowUpModalOpen}
+        onCancel={() => setIsFollowUpModalOpen(false)}
+        width={1000}
+        footer={[
+          <Button key="close" onClick={() => setIsFollowUpModalOpen(false)}>Close</Button>
+        ]}
+        centered
+      >
+        <div className="table-responsive">
+          <Table
+            columns={projectListColumns}
+            dataSource={followUpData}
+            loading={isFollowUpLoading}
             rowKey="_id"
             pagination={{ pageSize: 5 }}
           />

@@ -39,7 +39,10 @@ export default function CompletionDetails({ item, entity }) {
                 ...item.completionDetails,
                 completionDate: item.completionDetails.completionDate ? dayjs(item.completionDetails.completionDate) : null,
                 solarPanelSerialNumbers: item.completionDetails.solarPanelSerialNumbers?.length ? item.completionDetails.solarPanelSerialNumbers : [''],
-                externalForms: mergedForms
+                externalForms: mergedForms,
+                netMode: !!item.completionDetails.netMode,
+                sendToBeLink: !!item.completionDetails.sendToBeLink,
+                appliedForSubsidy: !!item.completionDetails.appliedForSubsidy
             };
             form.setFieldsValue(data);
             setIsCompleted(item.completionDetails.isInstallationCompleted);
@@ -114,6 +117,21 @@ export default function CompletionDetails({ item, entity }) {
                     </Col>
                 </Row>
 
+                <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
+                    <Col span={8}>
+                        <Text type="secondary">Net Mode</Text>
+                        <div style={{ fontWeight: 'bold', fontSize: 16 }}>{details.netMode ? 'YES' : 'NO'}</div>
+                    </Col>
+                    <Col span={8}>
+                        <Text type="secondary">Send to be link</Text>
+                        <div style={{ fontWeight: 'bold', fontSize: 16 }}>{details.sendToBeLink ? 'YES' : 'NO'}</div>
+                    </Col>
+                    <Col span={8}>
+                        <Text type="secondary">Applied for Subsidy</Text>
+                        <div style={{ fontWeight: 'bold', fontSize: 16 }}>{details.appliedForSubsidy ? 'YES' : 'NO'}</div>
+                    </Col>
+                </Row>
+
                 <Divider />
 
                 <Title level={5}>Solar Panels ({details.solarPanelSerialNumbers?.length || 0})</Title>
@@ -174,6 +192,24 @@ export default function CompletionDetails({ item, entity }) {
                             rules={[{ required: true, message: 'Inverter model is required' }]}
                         >
                             <Input placeholder="Enter model number" />
+                        </Form.Item>
+                    </Col>
+                </Row>
+
+                <Row gutter={16}>
+                    <Col span={8}>
+                        <Form.Item name="netMode" label="Net Mode" valuePropName="checked">
+                            <Switch unCheckedChildren="NO" checkedChildren="YES" />
+                        </Form.Item>
+                    </Col>
+                    <Col span={8}>
+                        <Form.Item name="sendToBeLink" label="Send to be link" valuePropName="checked">
+                            <Switch unCheckedChildren="NO" checkedChildren="YES" />
+                        </Form.Item>
+                    </Col>
+                    <Col span={8}>
+                        <Form.Item name="appliedForSubsidy" label="Applied for Subsidy" valuePropName="checked">
+                            <Switch unCheckedChildren="NO" checkedChildren="YES" />
                         </Form.Item>
                     </Col>
                 </Row>

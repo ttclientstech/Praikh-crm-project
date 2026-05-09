@@ -166,8 +166,8 @@ const LiveSummary = () => {
     const loanDisbursals = paymentDetails?.loanDisbursals || [];
     const legacyLoan = paymentDetails?.loanCreditedAmount || 0;
 
-    const totalAdvances = advancePayments.reduce((sum, item) => sum + (item?.amount || 0), 0);
-    const totalLoans = loanDisbursals.reduce((sum, item) => sum + (item?.amount || 0), 0) + legacyLoan;
+    const totalAdvances = (advancePayments?.length > 0) ? advancePayments.reduce((sum, item) => sum + (item?.amount || 0), 0) : ((paymentDetails?.advancePayment1 || 0) + (paymentDetails?.advancePayment2 || 0));
+    const totalLoans = (loanDisbursals?.length > 0) ? loanDisbursals.reduce((sum, item) => sum + (item?.amount || 0), 0) : legacyLoan;
     const totalReceived = totalAdvances + totalLoans;
     const remaining = totalCost - totalReceived;
 
@@ -496,7 +496,7 @@ const StepThree = () => {
 };
 
 
-function LocalSolarProjectForm({ isUpdate = false, record, onSuccess }) {
+export function LocalSolarProjectForm({ isUpdate = false, record, onSuccess, initialStep = 0 }) {
     const dispatch = useDispatch();
     const entity = 'solarProject';
 
@@ -508,7 +508,7 @@ function LocalSolarProjectForm({ isUpdate = false, record, onSuccess }) {
     const isSuccess = isUpdate ? isSuccessUpdate : isSuccessCreate;
 
     const [form] = Form.useForm();
-    const [currentStep, setCurrentStep] = useState(0);
+    const [currentStep, setCurrentStep] = useState(initialStep);
 
     const steps = [
         { title: 'Personal Info', content: 'Personal Information & Client Details' },
@@ -675,6 +675,7 @@ function LocalSolarProjectForm({ isUpdate = false, record, onSuccess }) {
 function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', mode = 'add' }) {
     const dispatch = useDispatch();
     const [newRemark, setNewRemark] = useState('');
+    const [nextDate, setNextDate] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
     if (!record) return null;
@@ -686,17 +687,27 @@ function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', m
         const historyField = type === 'Loan' ? 'loanRemarksHistory' : 'personalRemarksHistory';
         const currentHistory = record[historyField] || [];
 
-        const updateData = {
-            [historyField]: [...currentHistory, { comment: newRemark, date: new Date() }]
+        const newEntry = { 
+            comment: newRemark, 
+            date: new Date() 
         };
+        if (nextDate) {
+            newEntry.nextFollowUpDate = nextDate.toISOString();
+        }
+
+        const updateData = {
+            [historyField]: [...currentHistory, newEntry]
+        };
+        if (nextDate) {
+            updateData.nextFollowUpDate = nextDate.toISOString();
+        }
 
         dispatch(crud.update({ entity, id: record._id, jsonData: updateData }));
 
         setTimeout(() => {
             setNewRemark('');
+            setNextDate(null);
             setSubmitting(false);
-            // We don't close modal here to let user see the update if list refreshes, 
-            // but usually we refresh list
             dispatch(crud.list({ entity, options: { items: 1000 } }));
         }, 800);
     };
@@ -710,9 +721,14 @@ function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', m
                     <div key={index} style={{ marginBottom: mode === 'history' ? '16px' : '0', padding: mode === 'history' ? '12px' : '0', background: mode === 'history' ? '#F8FAFC' : 'transparent', borderRadius: '8px', border: mode === 'history' ? '1px solid #E2E8F0' : 'none' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                             <span style={{ fontWeight: '600', fontSize: '12px', color: '#64748B' }}>
-                                {dayjs(item.date).format('DD MMM YYYY, hh:mm A')}
-                            </span>
-                        </div>
+                {dayjs(item.date).format('DD MMM YYYY, hh:mm A')}
+              </span>
+              {item.nextFollowUpDate && (
+                <span style={{ fontWeight: '600', fontSize: '12px', color: '#EF4444' }}>
+                  Next Follow Up: {dayjs(item.nextFollowUpDate).format('DD MMM YYYY')}
+                </span>
+              )}
+            </div>
                         <div style={{ color: '#1E293B', fontSize: '14px' }}>{item.comment}</div>
                     </div>
                 ))
@@ -730,12 +746,19 @@ function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', m
                     {mode === 'add' && (
                         <>
                             <Input.TextArea
-                                rows={3}
-                                placeholder="Add new loan remark..."
-                                value={newRemark}
-                                onChange={(e) => setNewRemark(e.target.value)}
-                            />
-                            <Button
+                rows={3}
+                placeholder="Add new loan remark..."
+                value={newRemark}
+                onChange={(e) => setNewRemark(e.target.value)}
+                style={{ marginBottom: '10px' }}
+              />
+              <DatePicker 
+                placeholder="Next Follow Up Date" 
+                style={{ width: '100%', marginBottom: '10px' }} 
+                value={nextDate}
+                onChange={(date) => setNextDate(date)}
+              />
+              <Button
                                 type="primary"
                                 onClick={() => handleSave('Loan')}
                                 loading={submitting}
@@ -757,12 +780,19 @@ function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', m
                     {mode === 'add' && (
                         <>
                             <Input.TextArea
-                                rows={3}
-                                placeholder="Add new personal remark..."
-                                value={newRemark}
-                                onChange={(e) => setNewRemark(e.target.value)}
-                            />
-                            <Button
+                rows={3}
+                placeholder="Add new personal remark..."
+                value={newRemark}
+                onChange={(e) => setNewRemark(e.target.value)}
+                style={{ marginBottom: '10px' }}
+              />
+              <DatePicker 
+                placeholder="Next Follow Up Date" 
+                style={{ width: '100%', marginBottom: '10px' }} 
+                value={nextDate}
+                onChange={(date) => setNextDate(date)}
+              />
+              <Button
                                 type="primary"
                                 onClick={() => handleSave('Personal')}
                                 loading={submitting}
@@ -799,8 +829,8 @@ function LocalSolarProjectView({ record }) {
     // Formatter
     const currency = (val) => val ? `₹ ${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '₹ 0';
 
-    const totalAdvances = paymentDetails?.advancePayments?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
-    const totalLoans = paymentDetails?.loanDisbursals?.reduce((sum, item) => sum + (item.amount || 0), 0) || (paymentDetails?.loanCreditedAmount || 0);
+    const totalAdvances = (paymentDetails?.advancePayments?.length > 0) ? paymentDetails.advancePayments.reduce((sum, item) => sum + (item.amount || 0), 0) : ((paymentDetails?.advancePayment1 || 0) + (paymentDetails?.advancePayment2 || 0));
+    const totalLoans = (paymentDetails?.loanDisbursals?.length > 0) ? paymentDetails.loanDisbursals.reduce((sum, item) => sum + (item.amount || 0), 0) : (paymentDetails?.loanCreditedAmount || 0);
     const totalReceived = totalAdvances + totalLoans;
     const balanceDue = (paymentDetails?.totalProjectCost || 0) - totalReceived;
 
