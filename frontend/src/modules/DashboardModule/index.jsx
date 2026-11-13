@@ -1,5 +1,5 @@
-import { useEffect, useState, cloneElement, useMemo } from 'react';
-import { Row, Col, Button, Spin, Card, Select, Space, Typography, Tag, Progress, Modal, Table, Input, Form, message, Divider, Tabs, DatePicker } from 'antd';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { Button, Select, Space, Tag, Progress, Modal, Table, Input, Form, message, Tabs, DatePicker } from 'antd';
 import '@/style/DashboardRedesign.css'; // Ensure CSS is loaded
 import { useMoney } from '@/settings';
 import { request } from '@/request';
@@ -12,35 +12,97 @@ import {
   ProjectOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  DollarOutlined,
   RiseOutlined,
   AppstoreOutlined,
   MessageOutlined,
-  EditOutlined
+  EditOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getStateOptions, getCityOptions } from '@/utils/stateCityData';
 import { LocalSolarProjectForm } from '@/pages/SolarProject/SolarProjectsPage';
 
-const { Title, Text } = Typography;
+// Financial rules mirror the Solar Project backend, including legacy refunds.
+const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100;
+const sumAmounts = (items) => Array.isArray(items)
+  ? roundMoney(items.reduce((sum, item) => sum + roundMoney(item?.amount), 0))
+  : 0;
 
-const StatsCard = ({ title, value, icon, color, suffix = '', precision = 0, formatter }) => {
-  return (
-    <div className="stats-card-modern">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <div className="stats-title">{title}</div>
-          <div className="stats-value">
-            {formatter ? formatter(value) : value}{suffix && <span style={{ fontSize: '18px', fontWeight: '600', marginLeft: '4px', opacity: 0.7 }}>{suffix}</span>}
-          </div>
-        </div>
-        <div className="stats-icon-wrapper" style={{ background: `${color}15`, color: color }}>
-          {cloneElement(icon, { style: { fontSize: '22px' } })}
-        </div>
-      </div>
-    </div>
-  )
-}
+const getProjectFinancials = (record) => {
+  const details = record?.paymentDetails || {};
+  const settlements = details.settlements || [];
+  const cost = roundMoney(details.totalProjectCost);
+  const advances = details.advancePayments?.length
+    ? sumAmounts(details.advancePayments)
+    : roundMoney(roundMoney(details.advancePayment1) + roundMoney(details.advancePayment2));
+  const loans = details.loanDisbursals?.length
+    ? sumAmounts(details.loanDisbursals)
+    : roundMoney(details.loanCreditedAmount);
+  const gross = roundMoney(advances + loans);
+  const refunded = sumAmounts(settlements.filter((item) => item.type === 'Customer Refund'));
+  const legacyRefunds = sumAmounts(settlements.filter(
+    (item) => item.type === 'Customer Refund' && item.requestId && !item.reference
+  ));
+  const approved = roundMoney(
+    sumAmounts(settlements.filter((item) => item.type === 'Refund Approval')) + legacyRefunds
+  );
+  const internal = sumAmounts(settlements.filter((item) => item.type === 'Internal Settlement'));
+  const net = roundMoney(gross - refunded);
+  const excess = Math.max(0, roundMoney(gross - cost));
+  return {
+    cost, gross, net, refunded, internal, approved,
+    remaining: Math.max(0, roundMoney(cost - net)),
+    excess,
+    payable: Math.max(0, roundMoney(approved - refunded)),
+    unallocated: Math.max(0, roundMoney(excess - approved - internal)),
+  };
+};
+
+const summarizeFinancials = (records) => records.reduce((totals, record) => {
+  const financial = getProjectFinancials(record);
+  for (const key of Object.keys(totals)) {
+    totals[key] = roundMoney(totals[key] + financial[key]);
+  }
+  return totals;
+}, { cost: 0, gross: 0, net: 0, refunded: 0, internal: 0, approved: 0,
+     remaining: 0, excess: 0, payable: 0, unallocated: 0 });
+
+const financialScroll = { x: 1540, y: 430 };
+const financialCell = { whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' };
+
+
+// Build a read-only ledger without treating approvals as cash movement.
+const getTransactionLog = (record) => {
+  const details = record?.paymentDetails || {};
+  const rows = [];
+  const advances = Array.isArray(details.advancePayments) && details.advancePayments.length
+    ? details.advancePayments
+    : [
+        { amount: details.advancePayment1, date: details.advancePayment1Date, mode: details.advancePayment1Mode },
+        { amount: details.advancePayment2, date: details.advancePayment2Date, mode: details.advancePayment2Mode },
+      ];
+  advances.forEach((entry, index) => {
+    if (roundMoney(entry?.amount) <= 0) return;
+    rows.push({ ...entry, key: `advance-${index}`, type: 'Advance Payment',
+      amount: roundMoney(entry.amount), date: entry.date || entry.paymentDate,
+      performedBy: entry.performedBy || entry.receivedBy });
+  });
+  const loans = Array.isArray(details.loanDisbursals) && details.loanDisbursals.length
+    ? details.loanDisbursals
+    : [{ amount: details.loanCreditedAmount, date: details.loanCreditedDate, mode: details.loanCreditedBank }];
+  loans.forEach((entry, index) => {
+    if (roundMoney(entry?.amount) <= 0) return;
+    rows.push({ ...entry, key: `loan-${index}`, type: 'Loan Disbursal',
+      amount: roundMoney(entry.amount), date: entry.date || entry.disbursalDate || entry.creditedDate,
+      performedBy: entry.performedBy || entry.receivedBy });
+  });
+  (details.settlements || []).forEach((entry, index) => {
+    rows.push({ ...entry, key: entry._id || `settlement-${index}`,
+      type: entry.type || 'Settlement', amount: roundMoney(entry.amount),
+      date: entry.date || entry.createdAt });
+  });
+  return rows.sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0));
+};
 
 function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', mode = 'add', onUpdateSuccess }) {
   const [newRemark, setNewRemark] = useState('');
@@ -76,7 +138,6 @@ function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', m
             if (response && response.success) {
                 message.success(`${type} remark added successfully`);
                 if (typeof onUpdateSuccess !== 'undefined' && onUpdateSuccess) onUpdateSuccess();
-                if (typeof dispatch !== 'undefined') dispatch(crud.list({ entity }));
                 setNewRemark('');
                 setNextDate(null);
             } else {
@@ -206,7 +267,7 @@ export default function DashboardModule() {
   const [filters, setFilters] = useState({ state: null, city: null });
   const [cityOptions, setCityOptions] = useState([]);
 
-  const { result, isLoading, isSuccess, onFetch } = useOnFetch();
+  const { result, isSuccess, onFetch } = useOnFetch();
 
   const fetchData = (currentFilters = filters) => {
     const options = {};
@@ -237,6 +298,8 @@ export default function DashboardModule() {
   useEffect(() => {
     onFetch(fetchData());
     fetchCustomLocations();
+    // Run once on mount; filter changes are fetched via Apply/Clear.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getMergedStateOptions = () => {
@@ -249,7 +312,7 @@ export default function DashboardModule() {
     return [...unique, { value: 'ADD_NEW_STATE', label: <span style={{ color: '#1890ff' }}><PlusOutlined /> Add New State</span> }];
   };
 
-  const getMergedCityOptions = (state) => {
+  const getMergedCityOptions = useCallback((state) => {
     if (!state || state === 'ADD_NEW_STATE') return [];
     const staticOpts = getCityOptions(state);
     const customOpts = (customLocations.cities && customLocations.cities[state] ? customLocations.cities[state] : []).map(c => ({ value: c, label: c }));
@@ -259,7 +322,7 @@ export default function DashboardModule() {
     const unique = all.filter((v, i, a) => a.findIndex(t => (t.value === v.value)) === i);
 
     return [...unique, { value: 'ADD_NEW_CITY', label: <span style={{ color: '#1890ff' }}><PlusOutlined /> Add New City</span> }];
-  };
+  }, [customLocations]);
 
   const handleStateChange = (value) => {
     if (value === 'ADD_NEW_STATE') {
@@ -338,7 +401,7 @@ export default function DashboardModule() {
     } else {
       setCityOptions([]);
     }
-  }, [filters.state, customLocations]);
+  }, [filters.state, getMergedCityOptions]);
 
   const handleCityChange = (value) => {
     if (value === 'ADD_NEW_CITY') {
@@ -436,88 +499,75 @@ export default function DashboardModule() {
     applyFilters();
   };
 
-  const revenueColumns = [
+  const moneyCell = (amount, color) => (
+    <span style={{ ...financialCell, color, fontWeight: 600 }}>
+      {moneyFormatter({ amount })}
+    </span>
+  );
+
+  // Minimal team-facing financial table. Full accounting stays in the completed-sites view.
+  const teamFinancialColumns = [
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (
-        <Tag color={status === 'Active' ? 'green' : status === 'Completed' ? 'blue' : 'default'}>
-          {status || 'Active'}
-        </Tag>
-      )
+      title: 'Client / Project', dataIndex: 'client', key: 'client', width: 230,
+      render: (value) => <strong style={{ overflowWrap: 'anywhere' }}>{value || '-'}</strong>,
     },
-    {
-      title: 'Project Name',
-      dataIndex: 'client',
-      key: 'client',
-      render: (text) => <b>{text}</b>
-    },
-    {
-      title: 'Contact',
-      dataIndex: 'contactNumber',
-      key: 'contactNumber',
-    },
-    {
-      title: 'Total Cost',
+   {
+      title: 'Project Cost',
       dataIndex: ['paymentDetails', 'totalProjectCost'],
-      key: 'totalProjectCost',
-      render: (val) => moneyFormatter({ amount: val || 0 })
+      key: 'quotationCost',
+      width: 160,
+      align: 'right',
+      render: (value) => (
+        <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+          {moneyFormatter({ amount: Number(value) || 0 })}
+        </span>
+      ),
     },
     {
-      title: 'Received',
-      key: 'received',
-      render: (_, record) => {
-        const pd = record.paymentDetails || {};
-                const totalAdvances = (pd.advancePayments?.length > 0) ? pd.advancePayments.reduce((sum, item) => sum + (item.amount || 0), 0) : ((pd.advancePayment1 || 0) + (pd.advancePayment2 || 0));
-        const totalLoans = (pd.loanDisbursals?.length > 0) ? pd.loanDisbursals.reduce((sum, item) => sum + (item.amount || 0), 0) : (pd.loanCreditedAmount || 0);
-        const totalReceived = totalAdvances + totalLoans;
-        return <span style={{ color: '#10B981' }}>{moneyFormatter({ amount: totalReceived })}</span>;
-      }
+      title: 'Credited Amount', key: 'net', width: 180, align: 'right',
+      render: (_, record) => moneyCell(getProjectFinancials(record).net, '#059669'),
     },
     {
-      title: 'Remaining',
-      key: 'remaining',
-      render: (_, record) => {
-        const pd = record.paymentDetails || {};
-                const totalAdvances = (pd.advancePayments?.length > 0) ? pd.advancePayments.reduce((sum, item) => sum + (item.amount || 0), 0) : ((pd.advancePayment1 || 0) + (pd.advancePayment2 || 0));
-        const totalLoans = (pd.loanDisbursals?.length > 0) ? pd.loanDisbursals.reduce((sum, item) => sum + (item.amount || 0), 0) : (pd.loanCreditedAmount || 0);
-        const totalReceived = totalAdvances + totalLoans;
-        const remaining = (pd.totalProjectCost || 0) - totalReceived;
-        return <span style={{ color: '#EF4444', fontWeight: 'bold' }}>{moneyFormatter({ amount: remaining })}</span>;
-      }
+      title: 'Pending Amount', key: 'remaining', width: 180, align: 'right',
+      render: (_, record) => moneyCell(getProjectFinancials(record).remaining, '#ea580c'),
     },
     {
-      title: 'Action',
-      key: 'action',
+      title: 'Extra Amount', key: 'unallocated', width: 180, align: 'right',
+      render: (_, record) => moneyCell(getProjectFinancials(record).unallocated, '#d97706'),
+    },
+    {
+      title: 'Action', key: 'action', width: 135, align: 'center',
       render: (_, record) => (
         <Button type="link" size="small" onClick={() => navigate(`/solarProject/read/${record._id}`)}>
-          View Detail
+          View Details
         </Button>
-      )
+      ),
     },
-    {
-      title: 'Edit',
-      key: 'edit',
-      align: 'center',
-      render: (_, record) => (
-        <Button type="primary" size="small" icon={<EditOutlined />} onClick={() => handleEditClick(record)}>
-          Edit
-        </Button>
-      )
-    },
-    {
-      title: 'Remark',
-      key: 'remark',
-      align: 'center',
-      render: (text, record) => (
-        <Button
-          type="text"
-          icon={<MessageOutlined style={{ fontSize: '18px', color: '#6366F1' }} />}
-          onClick={() => handleRemarkClick(record, 'add')}
-        />
-      )
-    }
+  ];
+
+  const completedFinancialColumns = [
+    { title: 'Status', dataIndex: 'status', key: 'status', width: 125,
+      render: (status) => <Tag color={status === 'Completed' ? 'blue' : 'green'}>{status || 'Active'}</Tag> },
+    { title: 'Project Name', dataIndex: 'client', key: 'client', width: 190,
+      render: (value) => <strong style={{ overflowWrap: 'anywhere' }}>{value || '-'}</strong> },
+    { title: 'Contact', dataIndex: 'contactNumber', key: 'contact', width: 145,
+      render: (value) => <span style={financialCell}>{value || '-'}</span> },
+    { title: 'Project Cost', key: 'cost', width: 150, align: 'right',
+      render: (_, record) => moneyCell(getProjectFinancials(record).cost) },
+    { title: 'Credited Amount', key: 'net', width: 165, align: 'right',
+      render: (_, record) => moneyCell(getProjectFinancials(record).net, '#059669') },
+    { title: 'Pending Amount', key: 'remaining', width: 160, align: 'right',
+      render: (_, record) => moneyCell(getProjectFinancials(record).remaining, '#ea580c') },
+    { title: 'Extra Amount', key: 'unallocated', width: 155, align: 'right',
+      render: (_, record) => moneyCell(getProjectFinancials(record).unallocated, '#d97706') },
+    { title: 'Transaction Log', key: 'log', width: 155, align: 'center',
+      render: (_, record) => <Button type="link" size="small" icon={<HistoryOutlined />} onClick={() => handleTransactionLogClick(record)}>View Log</Button> },
+    { title: 'Action', key: 'action', width: 125, align: 'center',
+      render: (_, record) => <Button type="link" size="small" onClick={() => navigate(`/solarProject/read/${record._id}`)}>View Details</Button> },
+    { title: 'Edit', key: 'edit', width: 100, align: 'center',
+      render: (_, record) => <Button type="primary" size="small" icon={<EditOutlined />} onClick={() => handleEditClick(record)}>Edit</Button> },
+    { title: 'Remark', key: 'remark', width: 85, align: 'center',
+      render: (_, record) => <Button type="text" aria-label="Add remark" icon={<MessageOutlined style={{ color: '#6366F1' }} />} onClick={() => handleRemarkClick(record, 'add')} /> },
   ];
 
   /* Total Projects Modal State */
@@ -601,6 +651,44 @@ export default function DashboardModule() {
     }
   ];
 
+  const [transactionLogProject, setTransactionLogProject] = useState(null);
+  const [transactionLogLoading, setTransactionLogLoading] = useState(false);
+
+  const handleTransactionLogClick = async (record) => {
+    setTransactionLogProject(record);
+    setTransactionLogLoading(true);
+    try {
+      const response = await request.read({ entity: 'solarProject', id: record._id });
+      if (response?.success && response.result) {
+        setTransactionLogProject(response.result);
+      } else {
+        message.warning('Could not refresh transaction log; showing available project data.');
+      }
+    } catch (error) {
+      message.warning('Could not refresh transaction log; showing available project data.');
+    } finally {
+      setTransactionLogLoading(false);
+    }
+  };
+
+  const transactionLogColumns = [
+    { title: 'Date', dataIndex: 'date', key: 'date', width: 145,
+      render: (value) => value && dayjs(value).isValid() ? dayjs(value).format('DD MMM YYYY') : '-' },
+    { title: 'Transaction Type', dataIndex: 'type', key: 'type', width: 175,
+      render: (value) => <Tag color={value === 'Customer Refund' ? 'red' : value === 'Refund Approval' ? 'gold' : value === 'Internal Settlement' ? 'purple' : 'blue'}>{value}</Tag> },
+    { title: 'Amount', dataIndex: 'amount', key: 'amount', width: 145, align: 'right',
+      render: (value) => moneyCell(value) },
+    { title: 'Transaction Done In', dataIndex: 'mode', key: 'mode', width: 160,
+      render: (value) => value || '-' },
+    { title: 'Performed By', dataIndex: 'performedBy', key: 'performedBy', width: 160,
+      render: (value) => typeof value === 'string' ? value || '-' : value?.name || '-' },
+    { title: 'Reference / Remark', key: 'reference', width: 260,
+      render: (_, item) => <div>
+        <div>{item.reference || item.allocationReference || item.requestId || '-'}</div>
+        {item.remark && <div style={{ color: '#64748b', whiteSpace: 'normal' }}>{item.remark}</div>}
+      </div> },
+  ];
+
   /* Completed Sites Modal State */
   const [isCompletedModalOpen, setIsCompletedModalOpen] = useState(false);
   const [completedData, setCompletedData] = useState([]);
@@ -677,33 +765,8 @@ export default function DashboardModule() {
   const [isPendingLoading, setIsPendingLoading] = useState(false);
 
 
-  const revenueTotals = useMemo(() => {
-    let received = 0;
-    let remaining = 0;
-    revenueData.forEach(record => {
-        const pd = record.paymentDetails || {};
-        const adv = (pd.advancePayments?.length > 0) ? pd.advancePayments.reduce((sum, item) => sum + (item.amount || 0), 0) : ((pd.advancePayment1 || 0) + (pd.advancePayment2 || 0));
-        const loans = (pd.loanDisbursals?.length > 0) ? pd.loanDisbursals.reduce((sum, item) => sum + (item.amount || 0), 0) : (pd.loanCreditedAmount || 0);
-        const rec = adv + loans;
-        received += rec;
-        remaining += (pd.totalProjectCost || 0) - rec;
-    });
-    return { received, remaining };
-  }, [revenueData]);
-
-  const completedTotals = useMemo(() => {
-    let received = 0;
-    let remaining = 0;
-    completedData.forEach(record => {
-        const pd = record.paymentDetails || {};
-        const adv = (pd.advancePayments?.length > 0) ? pd.advancePayments.reduce((sum, item) => sum + (item.amount || 0), 0) : ((pd.advancePayment1 || 0) + (pd.advancePayment2 || 0));
-        const loans = (pd.loanDisbursals?.length > 0) ? pd.loanDisbursals.reduce((sum, item) => sum + (item.amount || 0), 0) : (pd.loanCreditedAmount || 0);
-        const rec = adv + loans;
-        received += rec;
-        remaining += (pd.totalProjectCost || 0) - rec;
-    });
-    return { received, remaining };
-  }, [completedData]);
+  const revenueTotals = useMemo(() => summarizeFinancials(revenueData), [revenueData]);
+  const completedTotals = useMemo(() => summarizeFinancials(completedData), [completedData]);
 
   const handlePendingProjectsClick = async () => {
     setIsPendingModalOpen(true);
@@ -800,7 +863,7 @@ export default function DashboardModule() {
           </div>
           <div className="navy-card-value">{moneyFormatter({ amount: stats.totalReceivable })}</div>
           <div style={{ fontSize: '13px', opacity: 0.6, marginTop: 'auto' }}>
-            Total Project Cost - Total Received
+            Outstanding project payments (backend summary)
           </div>
           <div style={{
             position: 'absolute',
@@ -897,16 +960,13 @@ export default function DashboardModule() {
       {/* Modals placed within the page container */}
       <Modal
         title={
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingRight: '60px' }}>
-            <span>Project Financial Details</span>
-            <div style={{ display: 'flex', gap: '20px', fontSize: '14px', fontWeight: 'normal' }}>
-              <span style={{ color: '#10B981', fontWeight: 'bold' }}>
-                Total Received: {moneyFormatter({ amount: revenueTotals.received })}
-              </span>
-              <span style={{ color: '#EF4444', fontWeight: 'bold' }}>
-                Total Remaining: {moneyFormatter({ amount: revenueTotals.remaining })}
-              </span>
-            </div>
+          <div style={{ paddingRight: 32 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Project Financial Details</div>
+            <Space size={[18, 6]} wrap style={{ fontSize: 13, fontWeight: 500 }}>
+              <span style={{ color: '#059669' }}>Total Credited: {moneyFormatter({ amount: revenueTotals.net })}</span>
+              <span style={{ color: '#ea580c' }}>Total Pending: {moneyFormatter({ amount: revenueTotals.remaining })}</span>
+              <span style={{ color: '#d97706' }}>Unallocated Extra: {moneyFormatter({ amount: revenueTotals.unallocated })}</span>
+            </Space>
           </div>
         }
         open={isRevenueModalOpen}
@@ -919,11 +979,13 @@ export default function DashboardModule() {
       >
         <div className="table-responsive">
           <Table
-            columns={revenueColumns}
+            columns={teamFinancialColumns}
             dataSource={revenueData}
             loading={isRevenueLoading}
             rowKey="_id"
-            pagination={{ pageSize: 5 }}
+            tableLayout="fixed"
+            scroll={{ x: 1050, y: 420 }}
+            pagination={{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['5', '10', '20', '50'] }}
           />
         </div>
       </Modal>
@@ -951,7 +1013,7 @@ export default function DashboardModule() {
         title="All Solar Projects"
         open={isProjectsModalOpen}
         onCancel={() => setIsProjectsModalOpen(false)}
-        width={1000}
+        width="95vw"
         footer={[
           <Button key="close" onClick={() => setIsProjectsModalOpen(false)}>Close</Button>
         ]}
@@ -970,21 +1032,19 @@ export default function DashboardModule() {
 
       <Modal
         title={
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingRight: '60px' }}>
-            <span>Completed Solar Sites</span>
-            <div style={{ display: 'flex', gap: '20px', fontSize: '14px', fontWeight: 'normal' }}>
-              <span style={{ color: '#10B981', fontWeight: 'bold' }}>
-                Total Received: {moneyFormatter({ amount: completedTotals.received })}
-              </span>
-              <span style={{ color: '#EF4444', fontWeight: 'bold' }}>
-                Total Remaining: {moneyFormatter({ amount: completedTotals.remaining })}
-              </span>
-            </div>
+          <div style={{ paddingRight: 32 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Completed Solar Sites</div>
+            <Space size={[16, 6]} wrap style={{ fontSize: 13, fontWeight: 500 }}>
+              <span>Project Cost: {moneyFormatter({ amount: completedTotals.cost })}</span>
+              <span style={{ color: '#059669' }}>Credited: {moneyFormatter({ amount: completedTotals.net })}</span>
+              <span style={{ color: '#ea580c' }}>Pending: {moneyFormatter({ amount: completedTotals.remaining })}</span>
+              <span style={{ color: '#d97706' }}>Extra: {moneyFormatter({ amount: completedTotals.unallocated })}</span>
+            </Space>
           </div>
         }
         open={isCompletedModalOpen}
         onCancel={() => setIsCompletedModalOpen(false)}
-        width={1000}
+        width="95vw"
         footer={[
           <Button key="close" onClick={() => setIsCompletedModalOpen(false)}>Close</Button>
         ]}
@@ -992,20 +1052,48 @@ export default function DashboardModule() {
       >
         <div className="table-responsive">
           <Table
-            columns={revenueColumns}
+            columns={completedFinancialColumns}
             dataSource={completedData}
             loading={isCompletedLoading}
             rowKey="_id"
-            pagination={{ pageSize: 5 }}
+            tableLayout="fixed"
+            scroll={financialScroll}
+            pagination={{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['5', '10', '20', '50'] }}
           />
         </div>
+      </Modal>
+
+      <Modal
+        title={`Transaction Log — ${transactionLogProject?.client || 'Completed Project'}`}
+        open={Boolean(transactionLogProject)}
+        onCancel={() => setTransactionLogProject(null)}
+        footer={<Button onClick={() => setTransactionLogProject(null)}>Close</Button>}
+        width="90vw"
+        centered
+        destroyOnClose
+      >
+        <p style={{ color: '#64748b' }}>
+          Complete available payment and settlement history. Refund Approval reserves an amount but does not transfer money.
+          Historical entries may not contain performer, method, or reference details.
+        </p>
+        <Table
+          size="small"
+          bordered
+          rowKey="key"
+          loading={transactionLogLoading}
+          columns={transactionLogColumns}
+          dataSource={transactionLogProject ? getTransactionLog(transactionLogProject) : []}
+          pagination={{ pageSize: 10, showSizeChanger: true }}
+          scroll={{ x: 1100, y: 430 }}
+          locale={{ emptyText: 'No recorded payment or settlement transactions.' }}
+        />
       </Modal>
 
       <Modal
         title="Pending Solar Projects"
         open={isPendingModalOpen}
         onCancel={() => setIsPendingModalOpen(false)}
-        width={1000}
+        width="95vw"
         footer={[
           <Button key="close" onClick={() => setIsPendingModalOpen(false)}>Close</Button>
         ]}
@@ -1026,7 +1114,7 @@ export default function DashboardModule() {
         title="Today's Follow Ups"
         open={isFollowUpModalOpen}
         onCancel={() => setIsFollowUpModalOpen(false)}
-        width={1000}
+        width="95vw"
         footer={[
           <Button key="close" onClick={() => setIsFollowUpModalOpen(false)}>Close</Button>
         ]}
@@ -1070,4 +1158,3 @@ export default function DashboardModule() {
     </div>
   );
 }
-

@@ -1,3 +1,4 @@
+
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/serverApiConfig';
 
@@ -5,22 +6,28 @@ import errorHandler from './errorHandler';
 import successHandler from './successHandler';
 import storePersist from '@/redux/storePersist';
 
-function findKeyByPrefix(object, prefix) {
-  for (var property in object) {
-    if (object.hasOwnProperty(property) && property.toString().startsWith(prefix)) {
-      return property;
-    }
-  }
-}
-
 function includeToken() {
   axios.defaults.baseURL = API_BASE_URL;
-
   axios.defaults.withCredentials = true;
-  const auth = storePersist.get('auth');
 
-  if (auth) {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${auth.current.token}`;
+  const auth = storePersist.get('auth');
+  const token = auth?.current?.token;
+
+  const tokenExists =
+    typeof token === 'string' &&
+    token.trim().length > 0;
+
+  // Temporary diagnostic. Does not print the token.
+  console.log('Authentication check:', {
+    authExists: Boolean(auth),
+    tokenExists,
+  });
+
+  if (tokenExists) {
+    axios.defaults.headers.common['Authorization'] =
+      `Bearer ${token.trim()}`;
+  } else {
+    delete axios.defaults.headers.common['Authorization'];
   }
 }
 
@@ -38,6 +45,7 @@ const request = {
       return errorHandler(error);
     }
   },
+
   createAndUpload: async ({ entity, jsonData }) => {
     try {
       includeToken();
@@ -55,6 +63,7 @@ const request = {
       return errorHandler(error);
     }
   },
+
   read: async ({ entity, id }) => {
     try {
       includeToken();
@@ -68,10 +77,14 @@ const request = {
       return errorHandler(error);
     }
   },
+
   update: async ({ entity, id, jsonData }) => {
     try {
       includeToken();
-      const response = await axios.patch(entity + '/update/' + id, jsonData);
+      const response = await axios.patch(
+        entity + '/update/' + id,
+        jsonData
+      );
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
@@ -81,14 +94,19 @@ const request = {
       return errorHandler(error);
     }
   },
+
   updateAndUpload: async ({ entity, id, jsonData }) => {
     try {
       includeToken();
-      const response = await axios.patch(entity + '/update/' + id, jsonData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await axios.patch(
+        entity + '/update/' + id,
+        jsonData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
@@ -102,7 +120,9 @@ const request = {
   delete: async ({ entity, id }) => {
     try {
       includeToken();
-      const response = await axios.delete(entity + '/delete/' + id);
+      const response = await axios.delete(
+        entity + '/delete/' + id
+      );
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
@@ -116,15 +136,26 @@ const request = {
   filter: async ({ entity, options = {} }) => {
     try {
       includeToken();
-      let filter = options.filter ? 'filter=' + options.filter : '';
-      let equal = options.equal ? '&equal=' + options.equal : '';
+
+      let filter = options.filter
+        ? 'filter=' + options.filter
+        : '';
+
+      let equal = options.equal
+        ? '&equal=' + options.equal
+        : '';
+
       let query = `?${filter}${equal}`;
 
-      const response = await axios.get(entity + '/filter' + query);
+      const response = await axios.get(
+        entity + '/filter' + query
+      );
+
       successHandler(response, {
         notifyOnSuccess: false,
         notifyOnFailed: false,
       });
+
       return response.data;
     } catch (error) {
       return errorHandler(error);
@@ -134,18 +165,24 @@ const request = {
   search: async ({ entity, options = {} }) => {
     try {
       includeToken();
+
       let query = '?';
+
       for (var key in options) {
         query += key + '=' + options[key] + '&';
       }
+
       query = query.slice(0, -1);
-      // headersInstance.cancelToken = source.token;
-      const response = await axios.get(entity + '/search' + query);
+
+      const response = await axios.get(
+        entity + '/search' + query
+      );
 
       successHandler(response, {
         notifyOnSuccess: false,
         notifyOnFailed: false,
       });
+
       return response.data;
     } catch (error) {
       return errorHandler(error);
@@ -155,38 +192,51 @@ const request = {
   list: async ({ entity, options = {} }) => {
     try {
       includeToken();
+
       let query = '?';
+
       for (var key in options) {
         query += key + '=' + options[key] + '&';
       }
+
       query = query.slice(0, -1);
 
-      const response = await axios.get(entity + '/list' + query);
+      const response = await axios.get(
+        entity + '/list' + query
+      );
 
       successHandler(response, {
         notifyOnSuccess: false,
         notifyOnFailed: false,
       });
+
       return response.data;
     } catch (error) {
       return errorHandler(error);
     }
   },
+
   listAll: async ({ entity, options = {} }) => {
     try {
       includeToken();
+
       let query = '?';
+
       for (var key in options) {
         query += key + '=' + options[key] + '&';
       }
+
       query = query.slice(0, -1);
 
-      const response = await axios.get(entity + '/listAll' + query);
+      const response = await axios.get(
+        entity + '/listAll' + query
+      );
 
       successHandler(response, {
         notifyOnSuccess: false,
         notifyOnFailed: false,
       });
+
       return response.data;
     } catch (error) {
       return errorHandler(error);
@@ -196,30 +246,44 @@ const request = {
   post: async ({ entity, jsonData }) => {
     try {
       includeToken();
-      const response = await axios.post(entity, jsonData);
+
+      const response = await axios.post(
+        entity,
+        jsonData
+      );
 
       return response.data;
     } catch (error) {
       return errorHandler(error);
     }
   },
+
   get: async ({ entity }) => {
     try {
       includeToken();
+
       const response = await axios.get(entity);
+
       return response.data;
     } catch (error) {
       return errorHandler(error);
     }
   },
+
   patch: async ({ entity, jsonData }) => {
     try {
       includeToken();
-      const response = await axios.patch(entity, jsonData);
+
+      const response = await axios.patch(
+        entity,
+        jsonData
+      );
+
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
       });
+
       return response.data;
     } catch (error) {
       return errorHandler(error);
@@ -229,45 +293,71 @@ const request = {
   upload: async ({ entity, id, jsonData }) => {
     try {
       includeToken();
-      const response = await axios.patch(entity + '/upload/' + id, jsonData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+
+      const response = await axios.patch(
+        entity + '/upload/' + id,
+        jsonData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
       });
+
       return response.data;
     } catch (error) {
       return errorHandler(error);
     }
   },
 
-  download: async ({ entity, jsonData, fileName = 'download.docx' }) => {
+  download: async ({
+    entity,
+    jsonData,
+    fileName = 'download.docx',
+  }) => {
     try {
       includeToken();
-      const response = await axios.post(entity, jsonData, {
-        responseType: 'blob',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+
+      const response = await axios.post(
+        entity,
+        jsonData,
+        {
+          responseType: 'blob',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
       const blob = new Blob([response.data], {
-        type: response.headers['content-type'] || 'application/octet-stream',
+        type:
+          response.headers['content-type'] ||
+          'application/octet-stream',
       });
+
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
+
       link.href = downloadUrl;
 
-      const disposition = response.headers['content-disposition'] || '';
-      const match = disposition.match(/filename="?([^"]+)"?/i);
+      const disposition =
+        response.headers['content-disposition'] || '';
+
+      const match = disposition.match(
+        /filename="?([^"]+)"?/i
+      );
+
       link.download = match?.[1] || fileName;
 
       document.body.appendChild(link);
       link.click();
       link.remove();
+
       window.URL.revokeObjectURL(downloadUrl);
 
       return { success: true };
@@ -285,12 +375,18 @@ const request = {
   summary: async ({ entity, options = {} }) => {
     try {
       includeToken();
+
       let query = '?';
+
       for (var key in options) {
         query += key + '=' + options[key] + '&';
       }
+
       query = query.slice(0, -1);
-      const response = await axios.get(entity + '/summary' + query);
+
+      const response = await axios.get(
+        entity + '/summary' + query
+      );
 
       successHandler(response, {
         notifyOnSuccess: false,
@@ -306,11 +402,17 @@ const request = {
   mail: async ({ entity, jsonData }) => {
     try {
       includeToken();
-      const response = await axios.post(entity + '/mail/', jsonData);
+
+      const response = await axios.post(
+        entity + '/mail/',
+        jsonData
+      );
+
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
       });
+
       return response.data;
     } catch (error) {
       return errorHandler(error);
@@ -320,15 +422,21 @@ const request = {
   convert: async ({ entity, id }) => {
     try {
       includeToken();
-      const response = await axios.get(`${entity}/convert/${id}`);
+
+      const response = await axios.get(
+        `${entity}/convert/${id}`
+      );
+
       successHandler(response, {
         notifyOnSuccess: true,
         notifyOnFailed: true,
       });
+
       return response.data;
     } catch (error) {
       return errorHandler(error);
     }
   },
 };
+
 export default request;
