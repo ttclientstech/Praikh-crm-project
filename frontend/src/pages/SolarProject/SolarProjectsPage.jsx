@@ -16,8 +16,9 @@ import '@/style/SolarRedesign.css';
 
 const { Step } = Steps;
 const { Option } = Select;
+
 const money = (value) => Math.round((Number(value) || 0) * 100) / 100;
-const sumAmounts = (items) => Array.isArray(items) ? items.reduce((sum, item) => sum + money(item?.amount), 0) : 0;
+const sumAmounts = (items) => Array.isArray(items) ? items.reduce((sum, item) => sum + money(item?.amount), 0) : [];
 const currency = (value) => `₹ ${money(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const getFinancials = (pd = {}) => {
@@ -32,9 +33,15 @@ const getFinancials = (pd = {}) => {
     const internallyAllocated = money(sumAmounts(settlements.filter(item => item.type === 'Internal Settlement')));
     const grossReceived = money(advances + loans);
     const netReceived = money(grossReceived - refunded);
+
     return {
-        projectCost, advances: money(advances), loans: money(loans), grossReceived,
-        refunded: money(refunded), internallyAllocated: money(internallyAllocated), netReceived,
+        projectCost,
+        advances: money(advances),
+        loans: money(loans),
+        grossReceived,
+        refunded: money(refunded),
+        internallyAllocated: money(internallyAllocated),
+        netReceived,
         remainingDue: Math.max(0, money(projectCost - netReceived)),
         unsettledExcess: Math.max(0, money(Math.max(0, money(grossReceived - projectCost)) - approvedRefunds - internallyAllocated)),
     };
@@ -78,6 +85,7 @@ const LiveSummary = () => {
     const bank = Form.useWatch('bankDetails');
     const f = getFinancials(pd);
     const sanctioned = money(bank?.sanctionedAmount);
+
     return (
         <Card size="small" style={{ marginBottom: 20, background: '#f0fdf4', borderColor: '#bbf7d0' }}>
             <Row gutter={[16, 18]}>
@@ -89,11 +97,14 @@ const LiveSummary = () => {
                 <Col xs={24} sm={8}><Statistic title="Remaining Due" value={f.remainingDue} prefix="₹" precision={2} /></Col>
                 <Col span={24}><strong>Available Excess: <span style={{ color: '#059669' }}>{currency(f.unsettledExcess)}</span></strong></Col>
             </Row>
-            {bank?.isBankLoan && <><Divider style={{ margin: '12px 0' }} /><Row gutter={[16, 16]}>
-                <Col xs={24} sm={8}><Statistic title="Sanctioned Loan" value={sanctioned} prefix="₹" precision={2} /></Col>
-                <Col xs={24} sm={8}><Statistic title="Loan Disbursed" value={f.loans} prefix="₹" precision={2} /></Col>
-                <Col xs={24} sm={8}><Statistic title="Pending Disbursal" value={Math.max(0, money(sanctioned - f.loans))} prefix="₹" precision={2} /></Col>
-            </Row></>}
+            {bank?.isBankLoan && <>
+                <Divider style={{ margin: '12px 0' }} />
+                <Row gutter={[16, 16]}>
+                    <Col xs={24} sm={8}><Statistic title="Sanctioned Loan" value={sanctioned} prefix="₹" precision={2} /></Col>
+                    <Col xs={24} sm={8}><Statistic title="Loan Disbursed" value={f.loans} prefix="₹" precision={2} /></Col>
+                    <Col xs={24} sm={8}><Statistic title="Pending Disbursal" value={Math.max(0, money(sanctioned - f.loans))} prefix="₹" precision={2} /></Col>
+                </Row>
+            </>}
         </Card>
     );
 };
@@ -101,6 +112,7 @@ const LiveSummary = () => {
 const AdvanceHistoryTable = () => {
     const pd = Form.useWatch('paymentDetails') || {};
     const transactions = [];
+
     if (pd.advancePayments?.length) {
         pd.advancePayments.forEach((payment, index) => {
             if (payment?.amount) transactions.push({ key: `adv_${index}`, description: `Advance Payment ${index + 1}`, mode: payment.mode, date: payment.date, amount: payment.amount, color: 'blue' });
@@ -109,8 +121,11 @@ const AdvanceHistoryTable = () => {
         if (pd.advancePayment1) transactions.push({ key: 'legacy1', description: 'Advance Payment 1', mode: pd.advancePayment1Mode, date: pd.advancePayment1Date, amount: pd.advancePayment1, color: 'blue' });
         if (pd.advancePayment2) transactions.push({ key: 'legacy2', description: 'Advance Payment 2', mode: pd.advancePayment2Mode, date: pd.advancePayment2Date, amount: pd.advancePayment2, color: 'blue' });
     }
+
     if (!transactions.length) return null;
+
     transactions.sort((a, b) => dayjs(b.date || 0).valueOf() - dayjs(a.date || 0).valueOf());
+
     return <Table dataSource={transactions} pagination={false} size="small" bordered title={() => <b>Advance Payments History</b>} columns={[
         { title: 'Description', dataIndex: 'description', render: text => <Tag color="blue">{text}</Tag> },
         { title: 'Mode', dataIndex: 'mode', render: text => text || '-' },
@@ -122,6 +137,7 @@ const AdvanceHistoryTable = () => {
 const LoanHistoryTable = () => {
     const pd = Form.useWatch('paymentDetails') || {};
     const transactions = [];
+
     if (pd.loanDisbursals?.length) {
         pd.loanDisbursals.forEach((loan, index) => {
             if (loan?.amount) transactions.push({ key: `loan_${index}`, description: `Loan ${index + 1} Disbursed`, mode: 'Bank Transfer', date: loan.date, amount: loan.amount });
@@ -129,8 +145,11 @@ const LoanHistoryTable = () => {
     } else if (pd.loanCreditedAmount) {
         transactions.push({ key: 'legacyLoan', description: 'Loan Amount Bank Credited', mode: 'Bank Transfer', date: pd.loanCreditedDate, amount: pd.loanCreditedAmount });
     }
+
     if (!transactions.length) return null;
+
     transactions.sort((a, b) => dayjs(b.date || 0).valueOf() - dayjs(a.date || 0).valueOf());
+
     return <Table dataSource={transactions} pagination={false} size="small" bordered title={() => <b>Loan Disbursals History</b>} columns={[
         { title: 'Description', dataIndex: 'description', render: text => <Tag color="purple">{text}</Tag> },
         { title: 'Mode', dataIndex: 'mode' },
@@ -144,6 +163,7 @@ const amountParser = value => (value || '').replace(/₹\s?|,/g, '');
 
 const StepThree = ({ financialLocked = false }) => {
     const isBankLoan = Form.useWatch(['bankDetails', 'isBankLoan']);
+
     return (
         <Row gutter={[24, 24]}>
             <Col span={24}><Divider orientation="left">Payment Details</Divider></Col>
@@ -152,14 +172,16 @@ const StepThree = ({ financialLocked = false }) => {
             <Col span={24}>
                 <Form.List name={['paymentDetails', 'advancePayments']}>
                     {(fields, { add, remove }) => <>
-                        {fields.map(({ key, name, ...restField }, index) => <div key={key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16, background: '#f9f9f9', padding: 16, borderRadius: 8 }}>
-                            <Row gutter={[12, 12]} style={{ flex: 1 }}>
-                                <Col xs={24} sm={8}><Form.Item {...restField} name={[name, 'amount']} label={`Advance Payment ${index + 1}`} rules={[{ required: true, message: 'Missing amount' }]}><InputNumber style={{ width: '100%' }} placeholder="Amount" formatter={amountFormatter} parser={amountParser} disabled={financialLocked} /></Form.Item></Col>
-                                <Col xs={24} sm={8}><Form.Item {...restField} name={[name, 'mode']} label="Mode" rules={[{ required: true, message: 'Missing mode' }]}><Select placeholder="Mode" disabled={financialLocked}><Option value="Cash">Cash</Option><Option value="Online">Online</Option><Option value="Cheque">Cheque</Option></Select></Form.Item></Col>
-                                <Col xs={24} sm={8}><Form.Item {...restField} name={[name, 'date']} label="Date" rules={[{ required: true, message: 'Missing date' }]}><DatePicker style={{ width: '100%' }} disabled={financialLocked} /></Form.Item></Col>
-                            </Row>
-                            {!financialLocked && <MinusCircleOutlined onClick={() => remove(name)} style={{ marginTop: 38, color: '#ff4d4f', fontSize: 18, cursor: 'pointer' }} />}
-                        </div>)}
+                        {fields.map(({ key, name, ...restField }, index) => (
+                            <div key={key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16, background: '#f9f9f9', padding: 16, borderRadius: 8 }}>
+                                <Row gutter={[12, 12]} style={{ flex: 1 }}>
+                                    <Col xs={24} sm={8}><Form.Item {...restField} name={[name, 'amount']} label={`Advance Payment ${index + 1}`} rules={[{ required: true, message: 'Missing amount' }]}><InputNumber style={{ width: '100%' }} placeholder="Amount" formatter={amountFormatter} parser={amountParser} disabled={financialLocked} /></Form.Item></Col>
+                                    <Col xs={24} sm={8}><Form.Item {...restField} name={[name, 'mode']} label="Mode" rules={[{ required: true, message: 'Missing mode' }]}><Select placeholder="Mode" disabled={financialLocked}><Option value="Cash">Cash</Option><Option value="Online">Online</Option><Option value="Cheque">Cheque</Option></Select></Form.Item></Col>
+                                    <Col xs={24} sm={8}><Form.Item {...restField} name={[name, 'date']} label="Date" rules={[{ required: true, message: 'Missing date' }]}><DatePicker style={{ width: '100%' }} disabled={financialLocked} /></Form.Item></Col>
+                                </Row>
+                                {!financialLocked && <MinusCircleOutlined onClick={() => remove(name)} style={{ marginTop: 38, color: '#ff4d4f', fontSize: 18, cursor: 'pointer' }} />}
+                            </div>
+                        ))}
                         <Form.Item><Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} disabled={financialLocked}>Add Advance Payment</Button></Form.Item>
                     </>}
                 </Form.List>
@@ -176,13 +198,15 @@ const StepThree = ({ financialLocked = false }) => {
             <Col span={24}>
                 <Form.List name={['paymentDetails', 'loanDisbursals']}>
                     {(fields, { add, remove }) => <>
-                        {fields.map(({ key, name, ...restField }, index) => <div key={key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16, background: '#f9f9f9', padding: 16, borderRadius: 8 }}>
-                            <Row gutter={[12, 12]} style={{ flex: 1 }}>
-                                <Col xs={24} sm={12}><Form.Item {...restField} name={[name, 'amount']} label={`Loan ${index + 1} Amount`} rules={[{ required: true, message: 'Missing amount' }]}><InputNumber style={{ width: '100%' }} placeholder="Amount" formatter={amountFormatter} parser={amountParser} disabled={!isBankLoan || financialLocked} /></Form.Item></Col>
-                                <Col xs={24} sm={12}><Form.Item {...restField} name={[name, 'date']} label="Date" rules={[{ required: true, message: 'Missing date' }]}><DatePicker style={{ width: '100%' }} disabled={!isBankLoan || financialLocked} /></Form.Item></Col>
-                            </Row>
-                            {!financialLocked && isBankLoan && <MinusCircleOutlined onClick={() => remove(name)} style={{ marginTop: 38, color: '#ff4d4f', fontSize: 18, cursor: 'pointer' }} />}
-                        </div>)}
+                        {fields.map(({ key, name, ...restField }, index) => (
+                            <div key={key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16, background: '#f9f9f9', padding: 16, borderRadius: 8 }}>
+                                <Row gutter={[12, 12]} style={{ flex: 1 }}>
+                                    <Col xs={24} sm={12}><Form.Item {...restField} name={[name, 'amount']} label={`Loan ${index + 1} Amount`} rules={[{ required: true, message: 'Missing amount' }]}><InputNumber style={{ width: '100%' }} placeholder="Amount" formatter={amountFormatter} parser={amountParser} disabled={!isBankLoan || financialLocked} /></Form.Item></Col>
+                                    <Col xs={24} sm={12}><Form.Item {...restField} name={[name, 'date']} label="Date" rules={[{ required: true, message: 'Missing date' }]}><DatePicker style={{ width: '100%' }} disabled={!isBankLoan || financialLocked} /></Form.Item></Col>
+                                </Row>
+                                {!financialLocked && isBankLoan && <MinusCircleOutlined onClick={() => remove(name)} style={{ marginTop: 38, color: '#ff4d4f', fontSize: 18, cursor: 'pointer' }} />}
+                            </div>
+                        ))}
                         <Form.Item><Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} disabled={!isBankLoan || financialLocked}>Add Loan Disbursal</Button></Form.Item>
                     </>}
                 </Form.List>
@@ -198,15 +222,20 @@ export function LocalSolarProjectForm({ isUpdate = false, record, onSuccess, ini
     const currentAdmin = useSelector(selectCurrentAdmin);
     const isOwner = currentAdmin?.role === 'owner';
     const entity = 'solarProject';
+
     const { isLoading: isLoadingCreate, isSuccess: isSuccessCreate } = useSelector(selectCreatedItem);
     const { isLoading: isLoadingUpdate, isSuccess: isSuccessUpdate } = useSelector(selectUpdatedItem);
+
     const isLoading = isUpdate ? isLoadingUpdate : isLoadingCreate;
     const isSuccess = isUpdate ? isSuccessUpdate : isSuccessCreate;
+
     const [form] = Form.useForm();
     const [currentStep, setCurrentStep] = useState(initialStep);
     const [latestRecord, setLatestRecord] = useState(record);
     const [refreshingRecord, setRefreshingRecord] = useState(false);
+
     const financialLocked = isUpdate && (latestRecord?.paymentDetails?.settlements?.length || 0) > 0;
+
     const steps = [
         { title: 'Personal Info', content: 'Personal Information & Client Details' },
         { title: 'Solar System', content: 'System Configuration & Details' },
@@ -214,26 +243,46 @@ export function LocalSolarProjectForm({ isUpdate = false, record, onSuccess, ini
     ];
 
     const populateForm = useCallback((project) => {
-        const values = { ...project, paymentDetails: { ...(project.paymentDetails || {}) } };
-        if (values.lightBillGeneratedDate) values.lightBillGeneratedDate = dayjs(values.lightBillGeneratedDate);
+        const values = {
+            ...project,
+            paymentDetails: { ...(project.paymentDetails || {}) },
+        };
+
+        if (values.lightBillGeneratedDate) {
+            values.lightBillGeneratedDate = dayjs(values.lightBillGeneratedDate);
+        }
+
         const pd = values.paymentDetails;
+
         if (!pd.advancePayments?.length) {
             const migrated = [];
             if (pd.advancePayment1) migrated.push({ amount: pd.advancePayment1, mode: pd.advancePayment1Mode, date: pd.advancePayment1Date ? dayjs(pd.advancePayment1Date) : null });
             if (pd.advancePayment2) migrated.push({ amount: pd.advancePayment2, mode: pd.advancePayment2Mode, date: pd.advancePayment2Date ? dayjs(pd.advancePayment2Date) : null });
             pd.advancePayments = migrated;
-        } else pd.advancePayments = pd.advancePayments.map(p => ({ ...p, date: p.date ? dayjs(p.date) : null }));
+        } else {
+            pd.advancePayments = pd.advancePayments.map(p => ({ ...p, date: p.date ? dayjs(p.date) : null }));
+        }
+
         if (!pd.loanDisbursals?.length) {
-            pd.loanDisbursals = pd.loanCreditedAmount ? [{ amount: pd.loanCreditedAmount, date: pd.loanCreditedDate ? dayjs(pd.loanCreditedDate) : null }] : [];
-        } else pd.loanDisbursals = pd.loanDisbursals.map(l => ({ ...l, date: l.date ? dayjs(l.date) : null }));
+            pd.loanDisbursals = pd.loanCreditedAmount
+                ? [{ amount: pd.loanCreditedAmount, date: pd.loanCreditedDate ? dayjs(pd.loanCreditedDate) : null }]
+                : [];
+        } else {
+            pd.loanDisbursals = pd.loanDisbursals.map(l => ({ ...l, date: l.date ? dayjs(l.date) : null }));
+        }
+
         form.setFieldsValue(values);
     }, [form]);
 
     useEffect(() => {
         setLatestRecord(record);
         form.resetFields();
-        if (isUpdate && record) populateForm(record);
-        else form.setFieldsValue({ projectState: 'Maharashtra', status: 'Active' });
+
+        if (isUpdate && record) {
+            populateForm(record);
+        } else {
+            form.setFieldsValue({ projectState: 'Maharashtra', status: 'Active' });
+        }
     }, [isUpdate, record, form, populateForm]);
 
     useEffect(() => {
@@ -246,51 +295,108 @@ export function LocalSolarProjectForm({ isUpdate = false, record, onSuccess, ini
 
     const handleSettlementRecorded = (updatedProject) => {
         if (!updatedProject) return;
+
         setLatestRecord(updatedProject);
-        // Refresh saved financials, but preserve unrelated unsaved edits in the form.
+
         const pd = updatedProject.paymentDetails || {};
         const currentPd = form.getFieldValue('paymentDetails') || {};
         const savedPd = { ...pd };
+
         savedPd.advancePayments = pd.advancePayments?.length
             ? pd.advancePayments.map(p => ({ ...p, date: p.date ? dayjs(p.date) : null }))
-            : [pd.advancePayment1 && { amount: pd.advancePayment1, mode: pd.advancePayment1Mode, date: pd.advancePayment1Date ? dayjs(pd.advancePayment1Date) : null }, pd.advancePayment2 && { amount: pd.advancePayment2, mode: pd.advancePayment2Mode, date: pd.advancePayment2Date ? dayjs(pd.advancePayment2Date) : null }].filter(Boolean);
+            : [
+                pd.advancePayment1 && { amount: pd.advancePayment1, mode: pd.advancePayment1Mode, date: pd.advancePayment1Date ? dayjs(pd.advancePayment1Date) : null },
+                pd.advancePayment2 && { amount: pd.advancePayment2, mode: pd.advancePayment2Mode, date: pd.advancePayment2Date ? dayjs(pd.advancePayment2Date) : null },
+            ].filter(Boolean);
+
         savedPd.loanDisbursals = pd.loanDisbursals?.length
             ? pd.loanDisbursals.map(l => ({ ...l, date: l.date ? dayjs(l.date) : null }))
-            : (pd.loanCreditedAmount ? [{ amount: pd.loanCreditedAmount, date: pd.loanCreditedDate ? dayjs(pd.loanCreditedDate) : null }] : []);
-        form.setFieldsValue({ paymentDetails: { ...currentPd, ...savedPd } });
+            : (pd.loanCreditedAmount
+                ? [{ amount: pd.loanCreditedAmount, date: pd.loanCreditedDate ? dayjs(pd.loanCreditedDate) : null }]
+                : []);
+
+        form.setFieldsValue({
+            paymentDetails: {
+                ...currentPd,
+                ...savedPd,
+            },
+        });
+
         dispatch(crud.list({ entity, options: { items: 1000 } }));
     };
 
     const refreshSavedRecord = async () => {
         if (!record?._id) return;
+
         setRefreshingRecord(true);
+
         try {
             const response = await request.read({ entity: 'solarProject', id: record._id });
-            if (response?.success && response.result) handleSettlementRecorded(response.result);
-            else Modal.error({ title: 'Refresh failed', content: 'Could not load the latest saved project data.' });
+
+            if (response?.success && response.result) {
+                handleSettlementRecorded(response.result);
+            } else {
+                Modal.error({
+                    title: 'Refresh failed',
+                    content: 'Could not load the latest saved project data.',
+                });
+            }
         } catch (error) {
-            Modal.error({ title: 'Refresh failed', content: error?.message || 'Could not load the latest saved project data.' });
+            Modal.error({
+                title: 'Refresh failed',
+                content: error?.message || 'Could not load the latest saved project data.',
+            });
         } finally {
             setRefreshingRecord(false);
         }
     };
 
     const onFinish = (values) => {
-        const pd = { ...(values.paymentDetails || {}) };
-        delete pd.settlements;
-        if (financialLocked) {
-            ['totalProjectCost', 'advancePayments', 'advancePayment1', 'advancePayment2', 'loanDisbursals', 'loanCreditedAmount'].forEach(key => delete pd[key]);
-        } else {
-            pd.advancePayments = (pd.advancePayments || []).map(p => ({ ...p, date: p.date ? dayjs(p.date).format() : undefined }));
-            pd.loanDisbursals = (pd.loanDisbursals || []).map(l => ({ ...l, date: l.date ? dayjs(l.date).format() : undefined }));
-        }
         const jsonData = {
             ...values,
-            lightBillGeneratedDate: values.lightBillGeneratedDate ? dayjs(values.lightBillGeneratedDate).format() : undefined,
-            paymentDetails: pd,
+            lightBillGeneratedDate: values.lightBillGeneratedDate
+                ? dayjs(values.lightBillGeneratedDate).format()
+                : undefined,
         };
-        if (isUpdate) dispatch(crud.update({ entity, id: record._id, jsonData }));
-        else dispatch(crud.create({ entity, jsonData }));
+
+        if (financialLocked) {
+            // The backend rejects any nonempty paymentDetails update
+            // after settlement history exists. Omit the entire field.
+            //
+            // This allows client, system, bank, and status changes
+            // without altering saved payments or settlement records.
+            delete jsonData.paymentDetails;
+        } else {
+            const pd = { ...(values.paymentDetails || {}) };
+
+            // Settlement history is managed only through dedicated APIs.
+            delete pd.settlements;
+
+            pd.advancePayments = (pd.advancePayments || []).map(p => ({
+                ...p,
+                date: p.date ? dayjs(p.date).format() : undefined,
+            }));
+
+            pd.loanDisbursals = (pd.loanDisbursals || []).map(l => ({
+                ...l,
+                date: l.date ? dayjs(l.date).format() : undefined,
+            }));
+
+            jsonData.paymentDetails = pd;
+        }
+
+        if (isUpdate) {
+            dispatch(crud.update({
+                entity,
+                id: record._id,
+                jsonData,
+            }));
+        } else {
+            dispatch(crud.create({
+                entity,
+                jsonData,
+            }));
+        }
     };
 
     const stepFields = [
@@ -298,26 +404,37 @@ export function LocalSolarProjectForm({ isUpdate = false, record, onSuccess, ini
         [['systemDetails', 'systemType'], ['systemDetails', 'capacity'], ['systemDetails', 'structureHeight'], ['systemDetails', 'solarPanelName'], ['systemDetails', 'solarPanelWatt'], ['systemDetails', 'solarPanelNos'], ['systemDetails', 'inverterName'], ['systemDetails', 'walkway']],
         [['paymentDetails', 'totalProjectCost'], ['paymentDetails', 'advancePayments'], ['bankDetails', 'isBankLoan'], ['bankDetails', 'bankName'], ['bankDetails', 'sanctionedAmount'], ['bankDetails', 'customerIfscCode'], ['bankDetails', 'solarRooftopIfscCode'], ['bankDetails', 'totalLoanAmount'], ['paymentDetails', 'loanDisbursals']],
     ];
-    const next = () => form.validateFields(stepFields[currentStep]).then(() => setCurrentStep(step => step + 1)).catch(err => console.log('Validation Failed:', err));
+
+    const next = () => form.validateFields(stepFields[currentStep])
+        .then(() => setCurrentStep(step => step + 1))
+        .catch(err => console.log('Validation Failed:', err));
+
     const prev = () => setCurrentStep(step => step - 1);
 
     return (
         <div style={{ marginTop: 20 }}>
-            <Steps current={currentStep} style={{ marginBottom: 40 }} size="small">{steps.map(item => <Step key={item.title} title={item.title} />)}</Steps>
+            <Steps current={currentStep} style={{ marginBottom: 40 }} size="small">
+                {steps.map(item => <Step key={item.title} title={item.title} />)}
+            </Steps>
+
             <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ projectState: 'Maharashtra', status: 'Active' }} preserve>
                 <div style={{ marginBottom: 30, minHeight: 400 }}>
                     <div style={{ display: currentStep === 0 ? 'block' : 'none' }}><StepOne /></div>
                     <div style={{ display: currentStep === 1 ? 'block' : 'none' }}><StepTwo /></div>
                     <div style={{ display: currentStep === 2 ? 'block' : 'none' }}><StepThree financialLocked={financialLocked} /></div>
                 </div>
+
                 <div style={{ textAlign: 'right', borderTop: '1px solid #f0f0f0', paddingTop: 20 }}>
                     {currentStep > 0 && <Button style={{ margin: '0 8px' }} onClick={prev}>Previous</Button>}
                     {currentStep < steps.length - 1 && <Button type="primary" onClick={next}>Next</Button>}
                     {currentStep === steps.length - 1 && <Button type="primary" htmlType="submit" loading={isLoading}>{isUpdate ? 'Update Project' : 'Save Project'}</Button>}
                 </div>
             </Form>
+
             {isUpdate && latestRecord?._id && currentStep === 2 && <>
-                <div style={{ marginTop: 16, textAlign: 'right' }}><Button size="small" onClick={refreshSavedRecord} loading={refreshingRecord}>Refresh Saved Project Data</Button></div>
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                    <Button size="small" onClick={refreshSavedRecord} loading={refreshingRecord}>Refresh Saved Project Data</Button>
+                </div>
                 {isOwner && <ManualPaymentSettlement record={latestRecord} onRecorded={handleSettlementRecorded} />}
             </>}
         </div>
@@ -329,65 +446,181 @@ function RemarkModal({ visible, onCancel, record, entity, initialTab = 'loan', m
     const [newRemark, setNewRemark] = useState('');
     const [nextDate, setNextDate] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+
     if (!record) return null;
+
     const handleSave = (type) => {
         if (!newRemark.trim()) return;
+
         setSubmitting(true);
+
         const historyField = type === 'Loan' ? 'loanRemarksHistory' : 'personalRemarksHistory';
         const newEntry = { comment: newRemark, date: new Date() };
+
         if (nextDate) newEntry.nextFollowUpDate = nextDate.toISOString();
+
         const updateData = { [historyField]: [...(record[historyField] || []), newEntry] };
+
         if (nextDate) updateData.nextFollowUpDate = nextDate.toISOString();
+
         dispatch(crud.update({ entity, id: record._id, jsonData: updateData }));
+
         setTimeout(() => {
-            setNewRemark(''); setNextDate(null); setSubmitting(false);
+            setNewRemark('');
+            setNextDate(null);
+            setSubmitting(false);
             dispatch(crud.list({ entity, options: { items: 1000 } }));
         }, 800);
     };
-    const renderHistory = (history) => <div style={{ maxHeight: 400, overflowY: 'auto', marginBottom: 20, padding: mode === 'history' ? 0 : 10, background: mode === 'history' ? 'transparent' : '#F8FAFC', borderRadius: 8 }}>
-        {(!history?.length) ? <p style={{ color: '#94A3B8', textAlign: 'center', padding: 20 }}>No history yet</p> :
-            (mode === 'history' ? history.slice().reverse() : [history[history.length - 1]]).map((item, index) => <div key={index} style={{ marginBottom: mode === 'history' ? 16 : 0, padding: mode === 'history' ? 12 : 0, background: mode === 'history' ? '#F8FAFC' : 'transparent', borderRadius: 8, border: mode === 'history' ? '1px solid #E2E8F0' : 'none' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span style={{ fontWeight: 600, fontSize: 12, color: '#64748B' }}>{dayjs(item.date).format('DD MMM YYYY, hh:mm A')}</span>{item.nextFollowUpDate && <span style={{ fontWeight: 600, fontSize: 12, color: '#EF4444' }}>Next Follow Up: {dayjs(item.nextFollowUpDate).format('DD MMM YYYY')}</span>}</div>
-                <div style={{ color: '#1E293B', fontSize: 14 }}>{item.comment}</div>
-            </div>)}
-    </div>;
+
+    const renderHistory = (history) => (
+        <div style={{ maxHeight: 400, overflowY: 'auto', marginBottom: 20, padding: mode === 'history' ? 0 : 10, background: mode === 'history' ? 'transparent' : '#F8FAFC', borderRadius: 8 }}>
+            {(!history?.length)
+                ? <p style={{ color: '#94A3B8', textAlign: 'center', padding: 20 }}>No history yet</p>
+                : (mode === 'history' ? history.slice().reverse() : [history[history.length - 1]]).map((item, index) => (
+                    <div key={index} style={{ marginBottom: mode === 'history' ? 16 : 0, padding: mode === 'history' ? 12 : 0, background: mode === 'history' ? '#F8FAFC' : 'transparent', borderRadius: 8, border: mode === 'history' ? '1px solid #E2E8F0' : 'none' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{ fontWeight: 600, fontSize: 12, color: '#64748B' }}>{dayjs(item.date).format('DD MMM YYYY, hh:mm A')}</span>
+                            {item.nextFollowUpDate && <span style={{ fontWeight: 600, fontSize: 12, color: '#EF4444' }}>Next Follow Up: {dayjs(item.nextFollowUpDate).format('DD MMM YYYY')}</span>}
+                        </div>
+                        <div style={{ color: '#1E293B', fontSize: 14 }}>{item.comment}</div>
+                    </div>
+                ))}
+        </div>
+    );
+
     const tabItems = [
-        { key: 'loan', label: 'Remarks on Loan', children: <div>{renderHistory(record.loanRemarksHistory)}{mode === 'add' && <><Input.TextArea rows={3} placeholder="Add new loan remark..." value={newRemark} onChange={e => setNewRemark(e.target.value)} style={{ marginBottom: 10 }} /><DatePicker placeholder="Next Follow Up Date" style={{ width: '100%', marginBottom: 10 }} value={nextDate} onChange={setNextDate} /><Button type="primary" onClick={() => handleSave('Loan')} loading={submitting} style={{ marginTop: 10, width: '100%' }}>Save Loan Remark</Button></>}</div> },
-        { key: 'personal', label: 'Remarks on Personal', children: <div>{renderHistory(record.personalRemarksHistory)}{mode === 'add' && <><Input.TextArea rows={3} placeholder="Add new personal remark..." value={newRemark} onChange={e => setNewRemark(e.target.value)} style={{ marginBottom: 10 }} /><DatePicker placeholder="Next Follow Up Date" style={{ width: '100%', marginBottom: 10 }} value={nextDate} onChange={setNextDate} /><Button type="primary" onClick={() => handleSave('Personal')} loading={submitting} style={{ marginTop: 10, width: '100%' }}>Save Personal Remark</Button></>}</div> },
+        {
+            key: 'loan',
+            label: 'Remarks on Loan',
+            children: <div>
+                {renderHistory(record.loanRemarksHistory)}
+                {mode === 'add' && <>
+                    <Input.TextArea rows={3} placeholder="Add new loan remark..." value={newRemark} onChange={e => setNewRemark(e.target.value)} style={{ marginBottom: 10 }} />
+                    <DatePicker placeholder="Next Follow Up Date" style={{ width: '100%', marginBottom: 10 }} value={nextDate} onChange={setNextDate} />
+                    <Button type="primary" onClick={() => handleSave('Loan')} loading={submitting} style={{ marginTop: 10, width: '100%' }}>Save Loan Remark</Button>
+                </>}
+            </div>,
+        },
+        {
+            key: 'personal',
+            label: 'Remarks on Personal',
+            children: <div>
+                {renderHistory(record.personalRemarksHistory)}
+                {mode === 'add' && <>
+                    <Input.TextArea rows={3} placeholder="Add new personal remark..." value={newRemark} onChange={e => setNewRemark(e.target.value)} style={{ marginBottom: 10 }} />
+                    <DatePicker placeholder="Next Follow Up Date" style={{ width: '100%', marginBottom: 10 }} value={nextDate} onChange={setNextDate} />
+                    <Button type="primary" onClick={() => handleSave('Personal')} loading={submitting} style={{ marginTop: 10, width: '100%' }}>Save Personal Remark</Button>
+                </>}
+            </div>,
+        },
     ];
-    return <Modal title={mode === 'add' ? `Add Remark: ${record.client}` : `Remark History: ${record.client}`} open={visible} onCancel={onCancel} footer={null} width={500} centered destroyOnClose><Tabs defaultActiveKey={initialTab} items={tabItems} onChange={() => setNewRemark('')} /></Modal>;
+
+    return <Modal title={mode === 'add' ? `Add Remark: ${record.client}` : `Remark History: ${record.client}`} open={visible} onCancel={onCancel} footer={null} width={500} centered destroyOnClose>
+        <Tabs defaultActiveKey={initialTab} items={tabItems} onChange={() => setNewRemark('')} />
+    </Modal>;
 }
 
 function LocalSolarProjectView({ record }) {
     if (!record) return null;
-    const { client, systemDetails, bankDetails, paymentDetails, status, proejctCity, projectState, contactNumber, email, consumerNumber, lightBillGeneratedDate, solarRooftopApplicationNo } = record;
+
+    const {
+        client, systemDetails, bankDetails, paymentDetails, status,
+        proejctCity, projectState, contactNumber, email, consumerNumber,
+        lightBillGeneratedDate, solarRooftopApplicationNo,
+    } = record;
+
     const f = getFinancials(paymentDetails);
+
     const items = [
-        { key: '1', label: 'System & Configuration', children: <Descriptions bordered column={1} size="small">
-            <Descriptions.Item label="System Type">{systemDetails?.systemType}</Descriptions.Item><Descriptions.Item label="Capacity">{systemDetails?.capacity}</Descriptions.Item><Descriptions.Item label="Panel Name">{systemDetails?.solarPanelName}</Descriptions.Item><Descriptions.Item label="Panel Wattage">{systemDetails?.solarPanelWatt}</Descriptions.Item><Descriptions.Item label="Inverter Name">{systemDetails?.inverterName}</Descriptions.Item><Descriptions.Item label="Structure Height">{systemDetails?.structureHeight}</Descriptions.Item><Descriptions.Item label="Walkway">{systemDetails?.walkway ? 'Yes' : 'No'}</Descriptions.Item>
-        </Descriptions> },
-        { key: '2', label: 'Financials', children: <Row gutter={[24, 24]}>
-            <Col xs={24} sm={12}><Card type="inner" title="Payment Overview" size="small"><Statistic title="Total Cost" value={f.projectCost} prefix="₹" precision={2} /><div style={{ marginTop: 10 }}>
-                <div><b>Advance:</b> {currency(f.advances)}</div><div><b>Loan Credited:</b> {currency(f.loans)}</div><Divider style={{ margin: '8px 0' }} />
-                <div><b>Gross Received:</b> {currency(f.grossReceived)}</div><div><b>Customer Refunds:</b> {currency(f.refunded)}</div><div><b>Internal Settlements:</b> {currency(f.internallyAllocated)}</div>
-                <div style={{ color: '#10B981', fontWeight: 'bold' }}>Net Received: {currency(f.netReceived)}</div><div style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16, marginTop: 5 }}>Due Balance: {currency(f.remainingDue)}</div><div><b>Available Excess:</b> {currency(f.unsettledExcess)}</div>
-            </div></Card></Col>
-            <Col xs={24} sm={12}><Card type="inner" title="Bank Details" size="small"><p><b>Bank:</b> {bankDetails?.bankName || 'N/A'}</p><p><b>Loan Amount:</b> {currency(bankDetails?.totalLoanAmount)}</p><p><b>Sanctioned:</b> {currency(bankDetails?.sanctionedAmount)}</p></Card></Col>
-        </Row> },
-        { key: '3', label: 'Completion Status', children: <CompletionDetails item={record} entity="solarProject" /> },
-        { key: '4', label: 'Client Info', children: <Descriptions size="small" bordered column={1}>
-            <Descriptions.Item label="Name">{client}</Descriptions.Item><Descriptions.Item label="Contact">{contactNumber}</Descriptions.Item><Descriptions.Item label="Email">{email}</Descriptions.Item><Descriptions.Item label="Consumer Number">{consumerNumber || 'N/A'}</Descriptions.Item><Descriptions.Item label="Light Bill Gen. Date">{lightBillGeneratedDate ? dayjs(lightBillGeneratedDate).format('DD MMM YYYY') : 'N/A'}</Descriptions.Item><Descriptions.Item label="Current Load (kW)">{record.currentLoadOnLightBill || 'N/A'}</Descriptions.Item><Descriptions.Item label="Additional Load (kW)">{record.additionalLoad || 'N/A'}</Descriptions.Item><Descriptions.Item label="Location">{projectState}, {proejctCity || record.villageCity}</Descriptions.Item>
-        </Descriptions> },
+        {
+            key: '1',
+            label: 'System & Configuration',
+            children: <Descriptions bordered column={1} size="small">
+                <Descriptions.Item label="System Type">{systemDetails?.systemType}</Descriptions.Item>
+                <Descriptions.Item label="Capacity">{systemDetails?.capacity}</Descriptions.Item>
+                <Descriptions.Item label="Panel Name">{systemDetails?.solarPanelName}</Descriptions.Item>
+                <Descriptions.Item label="Panel Wattage">{systemDetails?.solarPanelWatt}</Descriptions.Item>
+                <Descriptions.Item label="Inverter Name">{systemDetails?.inverterName}</Descriptions.Item>
+                <Descriptions.Item label="Structure Height">{systemDetails?.structureHeight}</Descriptions.Item>
+                <Descriptions.Item label="Walkway">{systemDetails?.walkway ? 'Yes' : 'No'}</Descriptions.Item>
+            </Descriptions>,
+        },
+        {
+            key: '2',
+            label: 'Financials',
+            children: <Row gutter={[24, 24]}>
+                <Col xs={24} sm={12}>
+                    <Card type="inner" title="Payment Overview" size="small">
+                        <Statistic title="Total Cost" value={f.projectCost} prefix="₹" precision={2} />
+                        <div style={{ marginTop: 10 }}>
+                            <div><b>Advance:</b> {currency(f.advances)}</div>
+                            <div><b>Loan Credited:</b> {currency(f.loans)}</div>
+                            <Divider style={{ margin: '8px 0' }} />
+                            <div><b>Gross Received:</b> {currency(f.grossReceived)}</div>
+                            <div><b>Customer Refunds:</b> {currency(f.refunded)}</div>
+                            <div><b>Internal Settlements:</b> {currency(f.internallyAllocated)}</div>
+                            <div style={{ color: '#10B981', fontWeight: 'bold' }}>Net Received: {currency(f.netReceived)}</div>
+                            <div style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16, marginTop: 5 }}>Due Balance: {currency(f.remainingDue)}</div>
+                            <div><b>Available Excess:</b> {currency(f.unsettledExcess)}</div>
+                        </div>
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12}>
+                    <Card type="inner" title="Bank Details" size="small">
+                        <p><b>Bank:</b> {bankDetails?.bankName || 'N/A'}</p>
+                        <p><b>Loan Amount:</b> {currency(bankDetails?.totalLoanAmount)}</p>
+                        <p><b>Sanctioned:</b> {currency(bankDetails?.sanctionedAmount)}</p>
+                    </Card>
+                </Col>
+            </Row>,
+        },
+        {
+            key: '3',
+            label: 'Completion Status',
+            children: <CompletionDetails item={record} entity="solarProject" />,
+        },
+        {
+            key: '4',
+            label: 'Client Info',
+            children: <Descriptions size="small" bordered column={1}>
+                <Descriptions.Item label="Name">{client}</Descriptions.Item>
+                <Descriptions.Item label="Contact">{contactNumber}</Descriptions.Item>
+                <Descriptions.Item label="Email">{email}</Descriptions.Item>
+                <Descriptions.Item label="Consumer Number">{consumerNumber || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Light Bill Gen. Date">{lightBillGeneratedDate ? dayjs(lightBillGeneratedDate).format('DD MMM YYYY') : 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Current Load (kW)">{record.currentLoadOnLightBill || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Additional Load (kW)">{record.additionalLoad || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Location">{projectState}, {proejctCity || record.villageCity}</Descriptions.Item>
+            </Descriptions>,
+        },
     ];
-    return <div><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}><div><h2 style={{ margin: 0, marginBottom: 8 }}>{client}</h2><div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}><Tag color="cyan">Consumer No: {consumerNumber || 'N/A'}</Tag><Tag color="geekblue">App No: {solarRooftopApplicationNo || 'N/A'}</Tag><Tag color="purple">Bill Date: {lightBillGeneratedDate ? dayjs(lightBillGeneratedDate).format('DD MMM YYYY') : 'N/A'}</Tag><Tag color="blue">Capacity: {systemDetails?.capacity || 'N/A'}</Tag></div></div><Tag color={status === 'Active' ? 'green' : 'blue'}>{status}</Tag></div><Tabs defaultActiveKey="1" items={items} /></div>;
+
+    return <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div>
+                <h2 style={{ margin: 0, marginBottom: 8 }}>{client}</h2>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                    <Tag color="cyan">Consumer No: {consumerNumber || 'N/A'}</Tag>
+                    <Tag color="geekblue">App No: {solarRooftopApplicationNo || 'N/A'}</Tag>
+                    <Tag color="purple">Bill Date: {lightBillGeneratedDate ? dayjs(lightBillGeneratedDate).format('DD MMM YYYY') : 'N/A'}</Tag>
+                    <Tag color="blue">Capacity: {systemDetails?.capacity || 'N/A'}</Tag>
+                </div>
+            </div>
+            <Tag color={status === 'Active' ? 'green' : 'blue'}>{status}</Tag>
+        </div>
+        <Tabs defaultActiveKey="1" items={items} />
+    </div>;
 }
 
 export default function SolarProjectsPage() {
     const dispatch = useDispatch();
     const translate = useLanguage();
     const entity = 'solarProject';
+
     const { result: listResult, isLoading: listIsLoading } = useSelector(selectListItems);
     const { pagination, items: dataSource } = listResult || { pagination: {}, items: [] };
+
     const [isFormModalVisible, setIsFormModalVisible] = useState(false);
     const [isViewModalVisible, setIsViewModalVisible] = useState(false);
     const [isRemarkModalVisible, setIsRemarkModalVisible] = useState(false);
@@ -396,53 +629,205 @@ export default function SolarProjectsPage() {
     const [currentRecord, setCurrentRecord] = useState(null);
     const [searchText, setSearchText] = useState('');
     const [filterStatus, setFilterStatus] = useState('ALL');
+
     const handleFormSuccess = useCallback(() => setIsFormModalVisible(false), []);
-    useEffect(() => { dispatch(crud.list({ entity, options: { items: 1000 } })); }, [dispatch]);
+
+    useEffect(() => {
+        dispatch(crud.list({ entity, options: { items: 1000 } }));
+    }, [dispatch]);
+
     const handleRefresh = () => dispatch(crud.list({ entity, options: { items: 1000 } }));
+
     const handleSearch = e => {
         const value = e.target.value;
         setSearchText(value);
         dispatch(crud.list({ entity, options: { q: value, fields: 'client,systemDetails.systemType', items: 1000 } }));
     };
-    const handleAdd = () => { setIsEdit(false); setCurrentRecord(null); dispatch(crud.resetAction({ actionType: 'create' })); setIsFormModalVisible(true); };
-    const handleEdit = record => { setIsEdit(true); setCurrentRecord(record); dispatch(crud.currentAction({ actionType: 'update', data: record })); setIsFormModalVisible(true); };
-    const handleView = record => { setCurrentRecord(record); setIsViewModalVisible(true); };
-    const handleRemark = (record, mode = 'add') => { setCurrentRecord(record); setRemarkMode(mode); setIsRemarkModalVisible(true); };
-    const handleDelete = record => Modal.confirm({ title: translate('delete_confirmation'), content: `${translate('are_you_sure_delete')} ${record.client}?`, okText: translate('delete'), okType: 'danger', cancelText: translate('cancel'), onOk: () => { dispatch(crud.delete({ entity, id: record._id })); setTimeout(handleRefresh, 500); } });
+
+    const handleAdd = () => {
+        setIsEdit(false);
+        setCurrentRecord(null);
+        dispatch(crud.resetAction({ actionType: 'create' }));
+        setIsFormModalVisible(true);
+    };
+
+    const handleEdit = record => {
+        setIsEdit(true);
+        setCurrentRecord(record);
+        dispatch(crud.currentAction({ actionType: 'update', data: record }));
+        setIsFormModalVisible(true);
+    };
+
+    const handleView = record => {
+        setCurrentRecord(record);
+        setIsViewModalVisible(true);
+    };
+
+    const handleRemark = (record, mode = 'add') => {
+        setCurrentRecord(record);
+        setRemarkMode(mode);
+        setIsRemarkModalVisible(true);
+    };
+
+    const handleDelete = record => Modal.confirm({
+        title: translate('delete_confirmation'),
+        content: `${translate('are_you_sure_delete')} ${record.client}?`,
+        okText: translate('delete'),
+        okType: 'danger',
+        cancelText: translate('cancel'),
+        onOk: () => {
+            dispatch(crud.delete({ entity, id: record._id }));
+            setTimeout(handleRefresh, 500);
+        },
+    });
+
     const columns = [
-        { title: 'SR NO.', key: 'srNo', render: (_, record, index) => <div style={{ fontWeight: 500, color: '#64748B', display: 'flex', justifyContent: 'center', alignItems: 'center', width: 32, height: 32, borderRadius: '50%', background: '#F1F5F9' }}>{index + 1}</div> },
-        { title: 'CLIENT NAME', dataIndex: 'client', key: 'client', render: (name, record) => <div className="client-cell"><Link to={`/solarProject/read/${record._id}`} className="client-name-link" style={{ marginLeft: 0 }}>{name}</Link></div> },
-        { title: 'STATUS', dataIndex: 'status', key: 'status', render: status => <span className={`status-badge status-${status || 'Active'}`}>{status || 'Active'}</span> },
-        { title: 'DATE', dataIndex: 'created', key: 'created', render: date => <span style={{ color: '#64748B' }}>{dayjs(date).format('DD MMM YYYY')}</span> },
-        { title: 'CITY', dataIndex: 'villageCity', key: 'villageCity', render: text => text || <span style={{ color: '#94A3B8' }}>--</span> },
-        { title: 'SYSTEM TYPE', dataIndex: ['systemDetails', 'systemType'], key: 'systemType', render: text => <span className="system-tag">{text}</span> },
-        { title: 'CAPACITY', dataIndex: ['systemDetails', 'capacity'], key: 'capacity', render: text => <b>{text}</b> },
-        { title: 'TOTAL COST', dataIndex: ['paymentDetails', 'totalProjectCost'], key: 'totalProjectCost', render: value => <span className="cost-highlight">{currency(value)}</span> },
-        { title: 'REMARK', key: 'remark', align: 'center', render: (_, record) => <Button type="text" icon={<MessageOutlined style={{ fontSize: 18, color: '#6366F1' }} />} onClick={() => handleRemark(record, 'add')} /> },
-        { title: '', key: 'action', width: 60, render: (_, record) => {
-            const items = [
-                { key: 'view', label: 'View Details', icon: <EyeOutlined />, onClick: () => handleView(record) },
-                { key: 'edit', label: 'Edit', icon: <EditOutlined />, onClick: () => handleEdit(record) },
-                { key: 'remarks', label: 'View Remarks History', icon: <MessageOutlined />, onClick: () => handleRemark(record, 'history') },
-                { type: 'divider' },
-                { key: 'delete', label: 'Delete', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(record) },
-            ];
-            return <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight"><EllipsisOutlined className="action-menu-trigger" style={{ cursor: 'pointer' }} /></Dropdown>;
-        } },
+        {
+            title: 'SR NO.',
+            key: 'srNo',
+            render: (_, record, index) => <div style={{ fontWeight: 500, color: '#64748B', display: 'flex', justifyContent: 'center', alignItems: 'center', width: 32, height: 32, borderRadius: '50%', background: '#F1F5F9' }}>{index + 1}</div>,
+        },
+        {
+            title: 'CLIENT NAME',
+            dataIndex: 'client',
+            key: 'client',
+            render: (name, record) => <div className="client-cell"><Link to={`/solarProject/read/${record._id}`} className="client-name-link" style={{ marginLeft: 0 }}>{name}</Link></div>,
+        },
+        {
+            title: 'STATUS',
+            dataIndex: 'status',
+            key: 'status',
+            render: status => <span className={`status-badge status-${status || 'Active'}`}>{status || 'Active'}</span>,
+        },
+        {
+            title: 'DATE',
+            dataIndex: 'created',
+            key: 'created',
+            render: date => <span style={{ color: '#64748B' }}>{dayjs(date).format('DD MMM YYYY')}</span>,
+        },
+        {
+            title: 'CITY',
+            dataIndex: 'villageCity',
+            key: 'villageCity',
+            render: text => text || <span style={{ color: '#94A3B8' }}>--</span>,
+        },
+        {
+            title: 'SYSTEM TYPE',
+            dataIndex: ['systemDetails', 'systemType'],
+            key: 'systemType',
+            render: text => <span className="system-tag">{text}</span>,
+        },
+        {
+            title: 'CAPACITY',
+            dataIndex: ['systemDetails', 'capacity'],
+            key: 'capacity',
+            render: text => <b>{text}</b>,
+        },
+        {
+            title: 'TOTAL COST',
+            dataIndex: ['paymentDetails', 'totalProjectCost'],
+            key: 'totalProjectCost',
+            render: value => <span className="cost-highlight">{currency(value)}</span>,
+        },
+        {
+            title: 'REMARK',
+            key: 'remark',
+            align: 'center',
+            render: (_, record) => <Button type="text" icon={<MessageOutlined style={{ fontSize: 18, color: '#6366F1' }} />} onClick={() => handleRemark(record, 'add')} />,
+        },
+        {
+            title: '',
+            key: 'action',
+            width: 60,
+            render: (_, record) => {
+                const items = [
+                    { key: 'view', label: 'View Details', icon: <EyeOutlined />, onClick: () => handleView(record) },
+                    { key: 'edit', label: 'Edit', icon: <EditOutlined />, onClick: () => handleEdit(record) },
+                    { key: 'remarks', label: 'View Remarks History', icon: <MessageOutlined />, onClick: () => handleRemark(record, 'history') },
+                    { type: 'divider' },
+                    { key: 'delete', label: 'Delete', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(record) },
+                ];
+
+                return <Dropdown menu={{ items }} trigger={['click']} placement="bottomRight">
+                    <EllipsisOutlined className="action-menu-trigger" style={{ cursor: 'pointer' }} />
+                </Dropdown>;
+            },
+        },
     ];
+
     return <div className="solar-page-container">
-        <div className="solar-header"><div className="solar-title-area"><h2><span className="solar-icon-accent"><ThunderboltOutlined /></span> Solar Projects List</h2><p>Manage and track all solar installations</p></div><div className="solar-actions">
-            <Input prefix={<SearchOutlined style={{ color: '#94A3B8', fontSize: 18 }} />} placeholder="Search projects by client or type..." className="search-pill-solar" variant="borderless" value={searchText} onChange={handleSearch} allowClear />
-            <Button className="icon-btn-round" type="text" onClick={handleRefresh}><ReloadOutlined style={{ fontSize: 18 }} /></Button>
-            <Button className="btn-gradient-primary" icon={<PlusOutlined />} onClick={handleAdd}>Add New Solar Project</Button>
-        </div></div>
-        <div style={{ padding: '0 24px', marginBottom: 16 }}><Segmented options={['ALL', 'Current', 'Completed']} value={filterStatus} onChange={setFilterStatus} size="large" style={{ background: '#f8fafc', padding: 4, borderRadius: 8, boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }} /></div>
-        <div className="stats-row"><div className="kpi-energy-card"><div className="energy-icon-box"><ProjectOutlined /></div><div className="energy-content"><h3>{pagination.total || 0}</h3><p>Total Projects</p></div></div></div>
-        <div className="floating-data-table"><Table className="custom-table" columns={columns} dataSource={[...(dataSource || [])].sort((a, b) => new Date(b.created) - new Date(a.created)).filter(item => filterStatus === 'ALL' || (item.status || 'Active') === ({ Current: 'Active', Completed: 'Completed' }[filterStatus]))} loading={listIsLoading} rowKey="_id" pagination={false} scroll={{ x: 1000, y: 450 }} /></div>
-        <Modal title={isEdit ? 'Edit Solar Project' : 'Add New Solar Project'} open={isFormModalVisible} onCancel={() => setIsFormModalVisible(false)} footer={null} width={800} centered destroyOnClose maskClosable={false} style={{ borderRadius: 16, overflow: 'hidden' }}>
+        <div className="solar-header">
+            <div className="solar-title-area">
+                <h2><span className="solar-icon-accent"><ThunderboltOutlined /></span> Solar Projects List</h2>
+                <p>Manage and track all solar installations</p>
+            </div>
+            <div className="solar-actions">
+                <Input prefix={<SearchOutlined style={{ color: '#94A3B8', fontSize: 18 }} />} placeholder="Search projects by client or type..." className="search-pill-solar" variant="borderless" value={searchText} onChange={handleSearch} allowClear />
+                <Button className="icon-btn-round" type="text" onClick={handleRefresh}><ReloadOutlined style={{ fontSize: 18 }} /></Button>
+                <Button className="btn-gradient-primary" icon={<PlusOutlined />} onClick={handleAdd}>Add New Solar Project</Button>
+            </div>
+        </div>
+
+        <div style={{ padding: '0 24px', marginBottom: 16 }}>
+            <Segmented options={['ALL', 'Current', 'Completed']} value={filterStatus} onChange={setFilterStatus} size="large" style={{ background: '#f8fafc', padding: 4, borderRadius: 8, boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }} />
+        </div>
+
+        <div className="stats-row">
+            <div className="kpi-energy-card">
+                <div className="energy-icon-box"><ProjectOutlined /></div>
+                <div className="energy-content">
+                    <h3>{pagination.total || 0}</h3>
+                    <p>Total Projects</p>
+                </div>
+            </div>
+        </div>
+
+        <div className="floating-data-table">
+            <Table
+                className="custom-table"
+                columns={columns}
+                dataSource={[...(dataSource || [])]
+                    .sort((a, b) => new Date(b.created) - new Date(a.created))
+                    .filter(item => filterStatus === 'ALL' || (item.status || 'Active') === ({ Current: 'Active', Completed: 'Completed' }[filterStatus]))}
+                loading={listIsLoading}
+                rowKey="_id"
+                pagination={false}
+                scroll={{ x: 1000, y: 450 }}
+            />
+        </div>
+
+        <Modal
+            title={isEdit ? 'Edit Solar Project' : 'Add New Solar Project'}
+            open={isFormModalVisible}
+            onCancel={() => setIsFormModalVisible(false)}
+            footer={null}
+            width={800}
+            centered
+            destroyOnClose
+            maskClosable={false}
+            style={{ borderRadius: 16, overflow: 'hidden' }}
+        >
             <LocalSolarProjectForm isUpdate={isEdit} record={currentRecord} onSuccess={handleFormSuccess} />
         </Modal>
-        <Modal title="Project Details" open={isViewModalVisible} onCancel={() => setIsViewModalVisible(false)} footer={[<Button key="close" onClick={() => setIsViewModalVisible(false)}>Close</Button>]} width={700} centered destroyOnClose><LocalSolarProjectView record={currentRecord} /></Modal>
-        <RemarkModal visible={isRemarkModalVisible} onCancel={() => setIsRemarkModalVisible(false)} record={currentRecord} entity={entity} mode={remarkMode} />
+
+        <Modal
+            title="Project Details"
+            open={isViewModalVisible}
+            onCancel={() => setIsViewModalVisible(false)}
+            footer={[<Button key="close" onClick={() => setIsViewModalVisible(false)}>Close</Button>]}
+            width={700}
+            centered
+            destroyOnClose
+        >
+            <LocalSolarProjectView record={currentRecord} />
+        </Modal>
+
+        <RemarkModal
+            visible={isRemarkModalVisible}
+            onCancel={() => setIsRemarkModalVisible(false)}
+            record={currentRecord}
+            entity={entity}
+            mode={remarkMode}
+        />
     </div>;
 }
